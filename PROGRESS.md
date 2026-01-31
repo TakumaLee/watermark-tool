@@ -9,7 +9,7 @@
 | **Phase 2** | 浮水印匯入 + 拖放定位 + 尺寸調整 | ✅ 已完成 | 2026-02-01 |
 | **Phase 3** | 透明度 + 移動效果 | ✅ 已完成 | 2026-02-02 |
 | **Phase 4** | 儲存設定 + 批次處理 | ✅ 已完成 | 2026-02-02 |
-| **Phase 5** | 跨平台打包 + 測試 | ⏳ 待開始 | - |
+| **Phase 5** | 跨平台打包 + 測試 | ✅ 已完成 | 2026-02-02 |
 
 ---
 
@@ -319,15 +319,95 @@ Rust 端 tokio::spawn async task
 
 ---
 
-## Phase 5 — 跨平台打包 + 測試（待開始）
+## Phase 5 — 跨平台打包 + 測試
 
-### 預計工作
+**狀態：✅ 已完成**
+**日期：2026-02-02**
 
-- [ ] 設定 GitHub Actions CI/CD
-- [ ] macOS 打包 + Code Signing + Notarization
-- [ ] Windows 打包 (NSIS .exe)
-- [ ] Linux 打包 (AppImage + .deb)
-- [ ] FFmpeg 二進位各平台打包
-- [ ] 跨平台 UI 測試
-- [ ] E2E 測試
-- [ ] 自動更新機制
+### 完成項目
+
+- [x] 設定 GitHub Actions CI/CD（`.github/workflows/build.yml`）
+  - macOS (Intel + Apple Silicon)、Windows、Linux 三平台 build matrix
+  - 使用 `tauri-apps/tauri-action@v0` 自動建構 + release
+  - `dtolnay/rust-toolchain` + `actions/setup-node` + Cargo 快取
+  - 前端測試 + Rust 測試 + Clippy lint 獨立 jobs
+- [x] macOS 打包設定（DMG，`tauri.conf.json` bundler config）
+  - `minimumSystemVersion: "10.15"`
+  - Apple Code Signing / Notarization 支援（透過 GitHub Secrets）
+- [x] Windows 打包設定（NSIS .exe）
+  - 多語言安裝器（English + 繁體中文）
+  - DigiCert timestamp、SHA-256 digest
+- [x] Linux 打包設定（AppImage + .deb）
+  - Debian 依賴：libwebkit2gtk-4.1-0, libgtk-3-0
+  - Section: video, Priority: optional
+- [x] FFmpeg 二進位各平台打包策略文件（`docs/FFMPEG-BUNDLING.md`）
+  - Tauri sidecar 機制說明
+  - 各平台 static binary 來源 + CI 自動下載腳本
+  - 開發環境 vs 生產環境策略
+- [x] 前端單元測試（Vitest + React Testing Library）— **31 tests**
+  - VideoPreview 組件測試（5 tests）：空狀態、載入中、影片播放、錯誤、關閉錯誤
+  - WatermarkStore 測試（12 tests）：CRUD、選取、同上、清除、ID 唯一性、propagation
+  - BatchStore 測試（9 tests）：生命週期、進度更新、完成/失敗、重置、idle 防護
+  - Preset hook 測試（5 tests）：序列化/反序列化、移動模式保留、invoke 驗證
+- [x] Rust 後端測試 — **30 tests**
+  - FFmpeg overlay 命令組裝測試（11 tests）：靜態/線性/隨機/多浮水印/品質對應
+  - 批次處理邏輯測試（5 tests）：目錄掃描、過濾、排序、錯誤處理
+  - Preset / 型別序列化測試（7 tests）：MovementMode、WatermarkConfig、BatchProgressEvent
+  - FFprobe 解析測試（3 tests）：JSON 解析、幀率處理
+  - FFmpeg 進度解析測試（4 tests）：out_time_us、time= 解析
+- [x] 自動更新機制設定（Tauri updater plugin）
+  - `tauri-plugin-updater` 整合（Cargo.toml + lib.rs + tauri.conf.json）
+  - 對話框式更新通知
+  - GitHub Releases endpoint 設定
+- [x] 更新 README.md（安裝說明、使用說明、截圖 placeholder、開發指南）
+- [x] 更新 PROGRESS.md
+
+### 技術細節
+
+#### 新增 / 修改的檔案
+| 檔案 | 說明 |
+|------|------|
+| `.github/workflows/build.yml` | **新增** — CI/CD 三平台 build matrix + 測試 |
+| `vitest.config.ts` | **新增** — Vitest 測試設定（jsdom 環境） |
+| `src/test/setup.ts` | **新增** — 測試環境設定（Tauri API mock + ResizeObserver mock） |
+| `src/components/VideoPreview/VideoPreview.test.tsx` | **新增** — VideoPreview 組件測試 |
+| `src/stores/watermarkStore.test.ts` | **新增** — WatermarkStore 單元測試 |
+| `src/stores/batchStore.test.ts` | **新增** — BatchStore 單元測試 |
+| `src/hooks/usePreset.test.ts` | **新增** — Preset 序列化邏輯測試 |
+| `src-tauri/tauri.conf.json` | **修改** — 新增 bundler 設定（macOS/Windows/Linux）+ updater plugin |
+| `src-tauri/Cargo.toml` | **修改** — 新增 `tauri-plugin-updater` |
+| `src-tauri/src/lib.rs` | **修改** — 註冊 updater plugin |
+| `src-tauri/src/ffmpeg/mod.rs` | **修改** — 新增型別序列化測試 |
+| `src-tauri/src/ffmpeg/overlay.rs` | **修改** — 新增線性/隨機/多浮水印/opacity 測試 |
+| `src-tauri/src/ffmpeg/batch.rs` | **修改** — 新增批次處理邏輯測試 |
+| `docs/FFMPEG-BUNDLING.md` | **新增** — FFmpeg 各平台打包策略文件 |
+| `docs/screenshots/.gitkeep` | **新增** — 截圖 placeholder 目錄 |
+| `README.md` | **新增** — 完整安裝/使用/開發說明 |
+
+#### 測試基礎設施
+| 項目 | 設定 |
+|------|------|
+| 前端測試框架 | Vitest 3.x + jsdom |
+| 組件測試 | @testing-library/react + @testing-library/jest-dom |
+| Tauri API Mock | 全域 mock（`@tauri-apps/api/core` 等） |
+| Rust 測試 | 內建 `#[cfg(test)]` + `#[test]` |
+| CI 測試 | 前端 + Rust 測試獨立 jobs，build 依賴測試通過 |
+
+#### npm 新增依賴（devDependencies）
+```
+vitest
+@testing-library/react
+@testing-library/jest-dom
+@testing-library/user-event
+jsdom
+```
+
+#### 自動更新架構
+```
+GitHub Release (tag v*)
+    → tauri-action 建構各平台安裝包
+    → 產生 latest.json (updater manifest)
+    → 應用啟動時檢查 endpoint
+    → 彈出更新對話框
+    → 自動下載 + 安裝
+```

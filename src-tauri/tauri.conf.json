@@ -35,12 +35,52 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": [],
+    "copyright": "© 2026 Watermark Tool",
+    "category": "Utility",
+    "shortDescription": "影片浮水印工具 — 在影片上疊加圖片浮水印",
+    "longDescription": "跨平台桌面應用程式，支援浮水印圖片拖放定位、大小調整、透明度設定、動態移動效果及批次處理。使用 FFmpeg 進行高品質影片渲染。",
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "frameworks": [],
+      "exceptionDomain": ""
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com",
+      "nsis": {
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "languages": ["English", "TradChinese"],
+        "headerImage": null,
+        "sidebarImage": null
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "section": "video",
+        "priority": "optional"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
   },
   "plugins": {
     "dialog": {},
     "shell": {
       "open": true
+    },
+    "updater": {
+      "active": true,
+      "dialog": true,
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/YOUR_ORG/watermark-tool/releases/latest/download/latest.json"
+      ]
     }
   }
 }

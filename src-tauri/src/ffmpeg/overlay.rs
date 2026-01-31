@@ -286,4 +286,117 @@ mod tests {
         assert_eq!(quality_to_crf("low"), (28, "fast"));
         assert_eq!(quality_to_crf("unknown"), (23, "medium"));
     }
+
+    #[test]
+    fn test_linear_horizontal_movement() {
+        let wm = WatermarkConfig {
+            image_path: "/tmp/logo.png".to_string(),
+            x: 0.0,
+            y: 0.5,
+            width: 0.1,
+            height: 0.1,
+            opacity: 1.0,
+            movement: MovementMode::Linear {
+                speed: 100.0,
+                direction: "horizontal".to_string(),
+            },
+        };
+        let result = build_filter_complex(&[wm], 1920, 1080);
+        assert!(result.filter_complex.contains("mod("));
+        assert!(result.filter_complex.contains("W-w"));
+    }
+
+    #[test]
+    fn test_linear_vertical_movement() {
+        let wm = WatermarkConfig {
+            image_path: "/tmp/logo.png".to_string(),
+            x: 0.5,
+            y: 0.0,
+            width: 0.1,
+            height: 0.1,
+            opacity: 1.0,
+            movement: MovementMode::Linear {
+                speed: 50.0,
+                direction: "vertical".to_string(),
+            },
+        };
+        let result = build_filter_complex(&[wm], 1920, 1080);
+        assert!(result.filter_complex.contains("H-h"));
+    }
+
+    #[test]
+    fn test_linear_diagonal_movement() {
+        let wm = WatermarkConfig {
+            image_path: "/tmp/logo.png".to_string(),
+            x: 0.0,
+            y: 0.0,
+            width: 0.1,
+            height: 0.1,
+            opacity: 1.0,
+            movement: MovementMode::Linear {
+                speed: 200.0,
+                direction: "diagonal".to_string(),
+            },
+        };
+        let result = build_filter_complex(&[wm], 1920, 1080);
+        // Diagonal should have both W-w and H-h
+        assert!(result.filter_complex.contains("W-w"));
+        assert!(result.filter_complex.contains("H-h"));
+    }
+
+    #[test]
+    fn test_random_movement() {
+        let wm = WatermarkConfig {
+            image_path: "/tmp/logo.png".to_string(),
+            x: 0.0,
+            y: 0.0,
+            width: 0.1,
+            height: 0.1,
+            opacity: 0.5,
+            movement: MovementMode::Random {
+                interval: 3.0,
+                fade_duration: 0.5,
+            },
+        };
+        let result = build_filter_complex(&[wm], 1920, 1080);
+        assert!(result.filter_complex.contains("enable="));
+        assert!(result.filter_complex.contains("7919")); // pseudo-random prime
+    }
+
+    #[test]
+    fn test_opacity_clamping() {
+        let wm = WatermarkConfig {
+            image_path: "/tmp/logo.png".to_string(),
+            x: 0.1,
+            y: 0.1,
+            width: 0.2,
+            height: 0.1,
+            opacity: 1.5, // Over 1.0 should be clamped
+            movement: MovementMode::Static,
+        };
+        let result = build_filter_complex(&[wm], 1920, 1080);
+        assert!(result.filter_complex.contains("colorchannelmixer=aa=1"));
+    }
+
+    #[test]
+    fn test_three_watermarks_chain() {
+        let wms: Vec<WatermarkConfig> = (0..3)
+            .map(|i| WatermarkConfig {
+                image_path: format!("/tmp/logo{}.png", i),
+                x: 0.1 * (i as f64 + 1.0),
+                y: 0.1,
+                width: 0.1,
+                height: 0.05,
+                opacity: 0.7,
+                movement: MovementMode::Static,
+            })
+            .collect();
+
+        let result = build_filter_complex(&wms, 1920, 1080);
+        // Should have tmp0, tmp1, vout labels
+        assert!(result.filter_complex.contains("[tmp0]"));
+        assert!(result.filter_complex.contains("[tmp1]"));
+        assert!(result.filter_complex.contains("[vout]"));
+        assert_eq!(result.input_args.len(), 6); // 3 * (-i, path)
+    }
 }

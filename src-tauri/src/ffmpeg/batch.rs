@@ -76,3 +76,97 @@ pub fn prepare_batch_items(
 pub const DEFAULT_VIDEO_EXTENSIONS: &[&str] = &[
     "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v", "ts", "mts",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_prepare_batch_items_nonexistent_input() {
+        let result = prepare_batch_items("/nonexistent/path", "/tmp/output", &["mp4"]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("does not exist"));
+    }
+
+    #[test]
+    fn test_prepare_batch_items_with_files() {
+        // Create temp directories and files
+        let tmp = std::env::temp_dir().join("watermark_batch_test");
+        let input_dir = tmp.join("input");
+        let output_dir = tmp.join("output");
+
+        // Clean up from previous runs
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&input_dir).unwrap();
+
+        // Create test files
+        fs::write(input_dir.join("video1.mp4"), b"fake").unwrap();
+        fs::write(input_dir.join("video2.mkv"), b"fake").unwrap();
+        fs::write(input_dir.join("readme.txt"), b"not a video").unwrap();
+
+        let result = prepare_batch_items(
+            input_dir.to_str().unwrap(),
+            output_dir.to_str().unwrap(),
+            &["mp4", "mkv"],
+        );
+
+        assert!(result.is_ok());
+        let items = result.unwrap();
+        assert_eq!(items.len(), 2);
+
+        // Should be sorted
+        assert!(items[0].input_path.contains("video1.mp4"));
+        assert!(items[1].input_path.contains("video2.mkv"));
+
+        // Output dir should have been created
+        assert!(output_dir.exists());
+
+        // Clean up
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_prepare_batch_items_no_matching_files() {
+        let tmp = std::env::temp_dir().join("watermark_batch_test_empty");
+        let input_dir = tmp.join("input");
+        let output_dir = tmp.join("output");
+
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&input_dir).unwrap();
+        fs::write(input_dir.join("document.pdf"), b"not a video").unwrap();
+
+        let result = prepare_batch_items(
+            input_dir.to_str().unwrap(),
+            output_dir.to_str().unwrap(),
+            &["mp4"],
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 0);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_default_video_extensions() {
+        assert!(DEFAULT_VIDEO_EXTENSIONS.contains(&"mp4"));
+        assert!(DEFAULT_VIDEO_EXTENSIONS.contains(&"mkv"));
+        assert!(DEFAULT_VIDEO_EXTENSIONS.contains(&"mov"));
+        assert!(!DEFAULT_VIDEO_EXTENSIONS.contains(&"pdf"));
+    }
+
+    #[test]
+    fn test_batch_config_creation() {
+        let config = BatchConfig {
+            items: vec![BatchItem {
+                input_path: "/tmp/in.mp4".to_string(),
+                output_path: "/tmp/out.mp4".to_string(),
+            }],
+            watermarks: vec![],
+            quality: "high".to_string(),
+        };
+        assert_eq!(config.items.len(), 1);
+        assert_eq!(config.quality, "high");
+    }
+}

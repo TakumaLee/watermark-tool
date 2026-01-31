@@ -73,7 +73,7 @@ pub struct BatchItemConfig {
 }
 
 /// Batch progress event emitted to frontend
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BatchProgressEvent {
     /// Overall batch job id
     pub batch_id: String,
@@ -89,4 +89,136 @@ pub struct BatchProgressEvent {
     pub error_message: Option<String>,
     /// Whether the entire batch is complete
     pub batch_complete: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_movement_mode_static_serialization() {
+        let mode = MovementMode::Static;
+        let json = serde_json::to_string(&mode).unwrap();
+        assert!(json.contains(r#""type":"Static"#));
+        let parsed: MovementMode = serde_json::from_str(&json).unwrap();
+        assert!(matches!(parsed, MovementMode::Static));
+    }
+
+    #[test]
+    fn test_movement_mode_linear_serialization() {
+        let mode = MovementMode::Linear {
+            speed: 120.0,
+            direction: "horizontal".to_string(),
+        };
+        let json = serde_json::to_string(&mode).unwrap();
+        assert!(json.contains(r#""type":"Linear"#));
+        assert!(json.contains("120"));
+        let parsed: MovementMode = serde_json::from_str(&json).unwrap();
+        if let MovementMode::Linear { speed, direction } = parsed {
+            assert_eq!(speed, 120.0);
+            assert_eq!(direction, "horizontal");
+        } else {
+            panic!("Expected Linear mode");
+        }
+    }
+
+    #[test]
+    fn test_movement_mode_random_serialization() {
+        let mode = MovementMode::Random {
+            interval: 3.0,
+            fade_duration: 0.5,
+        };
+        let json = serde_json::to_string(&mode).unwrap();
+        assert!(json.contains(r#""type":"Random"#));
+        let parsed: MovementMode = serde_json::from_str(&json).unwrap();
+        if let MovementMode::Random {
+            interval,
+            fade_duration,
+        } = parsed
+        {
+            assert_eq!(interval, 3.0);
+            assert_eq!(fade_duration, 0.5);
+        } else {
+            panic!("Expected Random mode");
+        }
+    }
+
+    #[test]
+    fn test_watermark_config_serialization() {
+        let config = WatermarkConfig {
+            image_path: "/tmp/logo.png".to_string(),
+            x: 0.1,
+            y: 0.2,
+            width: 0.3,
+            height: 0.15,
+            opacity: 0.8,
+            movement: MovementMode::Static,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let parsed: WatermarkConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.image_path, "/tmp/logo.png");
+        assert_eq!(parsed.x, 0.1);
+        assert_eq!(parsed.opacity, 0.8);
+    }
+
+    #[test]
+    fn test_batch_progress_event_serialization() {
+        let event = BatchProgressEvent {
+            batch_id: "test-batch".to_string(),
+            current_index: 1,
+            total_count: 5,
+            file_progress: 0.75,
+            file_status: "processing".to_string(),
+            error_message: None,
+            batch_complete: false,
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        let parsed: BatchProgressEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, event);
+    }
+
+    #[test]
+    fn test_batch_progress_event_with_error() {
+        let event = BatchProgressEvent {
+            batch_id: "err-batch".to_string(),
+            current_index: 2,
+            total_count: 3,
+            file_progress: 0.0,
+            file_status: "error".to_string(),
+            error_message: Some("FFmpeg crashed".to_string()),
+            batch_complete: false,
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("FFmpeg crashed"));
+    }
+
+    #[test]
+    fn test_preset_info_serialization() {
+        let info = PresetInfo {
+            name: "my-preset".to_string(),
+            path: "/presets/my-preset.json".to_string(),
+            watermark_count: 2,
+            modified: "2026-02-01".to_string(),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        let parsed: PresetInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.name, "my-preset");
+        assert_eq!(parsed.watermark_count, 2);
+    }
+
+    #[test]
+    fn test_video_info_serialization() {
+        let info = VideoInfo {
+            width: 1920,
+            height: 1080,
+            duration: 120.5,
+            fps: 30.0,
+            codec: "h264".to_string(),
+            file_size: 50_000_000,
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        let parsed: VideoInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.width, 1920);
+        assert_eq!(parsed.duration, 120.5);
+    }
 }
