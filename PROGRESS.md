@@ -5,7 +5,7 @@
 | 階段 | 內容 | 狀態 | 完成日期 |
 |------|------|------|---------|
 | **Phase 0** | 技術研究 + UI/UX 設計 | ✅ 已完成 | 2026-01-31 |
-| **Phase 1** | 基礎框架 + 影片匯入 + 預覽 | ⏳ 待開始 | - |
+| **Phase 1** | 基礎框架 + 影片匯入 + 預覽 | ✅ 已完成 | 2026-02-01 |
 | **Phase 2** | 浮水印匯入 + 拖放定位 + 尺寸調整 | ⏳ 待開始 | - |
 | **Phase 3** | 透明度 + 移動效果 | ⏳ 待開始 | - |
 | **Phase 4** | 儲存設定 + 批次處理 | ⏳ 待開始 | - |
@@ -54,18 +54,78 @@
 
 ---
 
-## Phase 1 — 基礎框架 + 影片匯入 + 預覽（待開始）
+## Phase 1 — 基礎框架 + 影片匯入 + 預覽
 
-### 預計工作
+**狀態：✅ 已完成**
+**日期：2026-02-01**
 
-- [ ] 初始化 Tauri 2.0 + React + TypeScript 專案
-- [ ] 設定 Tailwind CSS 深色主題
-- [ ] 實作主畫面佈局（AppShell）
-- [ ] 實作影片匯入功能（拖放 + 檔案選擇）
-- [ ] 實作影片預覽播放（HTML5 Video）
-- [ ] 實作影片比例自適應
-- [ ] 整合 FFmpeg 二進位（讀取影片資訊）
-- [ ] 實作空狀態 UI
+### 完成項目
+
+- [x] 初始化 Tauri 2.0 + React 19 + TypeScript 專案（確認結構完整）
+- [x] 設定 Tailwind CSS 4.x 深色主題（自訂色彩系統 via @theme）
+- [x] 實作主畫面佈局（AppShell：標題列 + 左側影片預覽 + 右側面板 + 底部工具列）
+- [x] 實作影片匯入功能（Tauri 原生拖放 + 檔案選擇對話框）
+- [x] 實作影片預覽播放（HTML5 Video，含播放/暫停/seek/進度條拖動）
+- [x] 實作影片比例自適應（object-fit: contain，支援直式/橫式/正方形）
+- [x] 整合 FFmpeg CLI（Rust 端：probe_video 命令讀取影片資訊）
+- [x] 實作空狀態 UI（拖放提示 + 支援格式說明）
+
+### 技術細節
+
+#### 前端架構
+| 項目 | 實作方式 |
+|------|---------|
+| 狀態管理 | Zustand store（`videoStore.ts`） |
+| 影片匯入 | `useVideoImport` hook，封裝 Tauri dialog + invoke |
+| 拖放 | Tauri 2.0 `onDragDropEvent` API（原生拖放） |
+| 預覽播放 | HTML5 `<video>` + 自訂播放控制列 |
+| 比例適應 | `object-fit: contain` + letterbox 深色背景 |
+| 樣式系統 | Tailwind CSS 4.x `@theme` 自訂 tokens |
+| 鍵盤快捷鍵 | Space 播放/暫停 |
+
+#### 元件結構
+```
+src/
+├── App.tsx                      # AppShell 主佈局
+├── components/
+│   ├── VideoPreview/
+│   │   ├── VideoPreview.tsx     # 預覽容器（拖放 + 狀態切換）
+│   │   ├── VideoPlayer.tsx      # 影片播放器 + 控制列
+│   │   ├── EmptyState.tsx       # 空狀態提示
+│   │   └── LoadingState.tsx     # 載入中動畫
+│   ├── WatermarkPanel/
+│   │   └── WatermarkPanel.tsx   # 右側面板（影片資訊 + 浮水印欄位預留）
+│   └── BottomToolbar/
+│       └── BottomToolbar.tsx    # 底部工具列
+├── stores/
+│   └── videoStore.ts            # 影片狀態 Zustand store
+├── hooks/
+│   └── useVideoImport.ts       # 影片匯入邏輯
+├── types/
+│   ├── video.ts                # VideoInfo 等型別定義
+│   └── index.ts
+└── utils/
+    ├── formatTime.ts           # 時間/檔案大小格式化
+    └── aspectRatio.ts          # 比例判斷工具
+```
+
+#### Rust 後端（Phase 0 已建立，Phase 1 驗證整合）
+- `commands/ffmpeg.rs` — `probe_video` 命令，呼叫 ffprobe 讀取影片資訊
+- `ffmpeg/probe.rs` — ffprobe JSON 解析
+- `ffmpeg/overlay.rs` — filter_complex 組裝（Phase 3 使用）
+- `ffmpeg/batch.rs` — 批次處理邏輯（Phase 4 使用）
+
+### 色彩系統
+
+| 用途 | CSS Variable | 色碼 |
+|------|-------------|------|
+| 背景（主） | `--color-bg-primary` | `#1a1a2e` |
+| 背景（次） | `--color-bg-secondary` | `#16213e` |
+| 背景（元件） | `--color-bg-component` | `#0f3460` |
+| 強調色 | `--color-accent` | `#e94560` |
+| 文字（主） | `--color-text-primary` | `#eaeaea` |
+| 文字（次） | `--color-text-secondary` | `#8892b0` |
+| 邊框 | `--color-border` | `#2a2a4a` |
 
 ---
 
@@ -74,10 +134,10 @@
 ### 預計工作
 
 - [ ] 實作浮水印圖片匯入
-- [ ] 實作浮水印預覽疊加層
+- [ ] 實作浮水印預覽疊加層（WatermarkOverlay 組件）
 - [ ] 實作拖放定位
 - [ ] 實作縮放 handle
-- [ ] 實作浮水印面板（右側）
+- [ ] 實作浮水印面板卡片（右側，含位置/尺寸控制項）
 - [ ] 實作座標/尺寸雙向同步（拖放 ↔ 面板輸入）
 - [ ] 實作「同上」功能
 - [ ] 實作新增/刪除浮水印

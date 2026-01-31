@@ -1,35 +1,31 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { VideoPreview } from './components/VideoPreview';
+import { WatermarkPanel } from './components/WatermarkPanel';
+import { BottomToolbar } from './components/BottomToolbar';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="flex flex-col h-screen w-screen bg-bg-primary text-text-primary overflow-hidden">
+      {/* Title bar area */}
+      <div
+        className="h-10 flex-shrink-0 flex items-center px-4 border-b border-border bg-bg-secondary select-none"
+        data-tauri-drag-region
+      >
+        <span className="text-sm font-medium text-text-primary">
+          影片浮水印工具
+        </span>
+        <span className="text-xs text-text-secondary ml-2">v0.1.0</span>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+
+      {/* Main content area: Preview (left) + Panel (right) */}
+      <div className="flex-1 flex min-h-0">
+        <VideoPreview />
+        <WatermarkPanel />
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+
+      {/* Bottom toolbar */}
+      <BottomToolbar />
+    </div>
+  );
 }
 
-export default App
+export default App;

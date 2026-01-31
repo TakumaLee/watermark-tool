@@ -1,0 +1,1 @@
+export { WatermarkPanel } from './WatermarkPanel';
