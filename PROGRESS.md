@@ -6,7 +6,7 @@
 |------|------|------|---------|
 | **Phase 0** | 技術研究 + UI/UX 設計 | ✅ 已完成 | 2026-01-31 |
 | **Phase 1** | 基礎框架 + 影片匯入 + 預覽 | ✅ 已完成 | 2026-02-01 |
-| **Phase 2** | 浮水印匯入 + 拖放定位 + 尺寸調整 | ⏳ 待開始 | - |
+| **Phase 2** | 浮水印匯入 + 拖放定位 + 尺寸調整 | ✅ 已完成 | 2026-02-01 |
 | **Phase 3** | 透明度 + 移動效果 | ⏳ 待開始 | - |
 | **Phase 4** | 儲存設定 + 批次處理 | ⏳ 待開始 | - |
 | **Phase 5** | 跨平台打包 + 測試 | ⏳ 待開始 | - |
@@ -129,18 +129,53 @@ src/
 
 ---
 
-## Phase 2 — 浮水印匯入 + 拖放定位 + 尺寸調整（待開始）
+## Phase 2 — 浮水印匯入 + 拖放定位 + 尺寸調整
 
-### 預計工作
+**狀態：✅ 已完成**
+**日期：2026-02-01**
 
-- [ ] 實作浮水印圖片匯入
-- [ ] 實作浮水印預覽疊加層（WatermarkOverlay 組件）
-- [ ] 實作拖放定位
-- [ ] 實作縮放 handle
-- [ ] 實作浮水印面板卡片（右側，含位置/尺寸控制項）
-- [ ] 實作座標/尺寸雙向同步（拖放 ↔ 面板輸入）
-- [ ] 實作「同上」功能
-- [ ] 實作新增/刪除浮水印
+### 完成項目
+
+- [x] 實作浮水印圖片匯入（png, jpg, jpeg, svg, gif, webp）
+- [x] 實作浮水印預覽疊加層（WatermarkOverlay 組件）
+- [x] 實作拖放定位（mouse events，限制在影片範圍內）
+- [x] 實作縮放 handle（四角拖動調整大小）
+- [x] 實作鎖定比例 / 自由調整切換
+- [x] 實作浮水印面板卡片（右側，含位置/尺寸/透明度控制項）
+- [x] 實作座標/尺寸雙向同步（拖放改變 → 面板更新，面板輸入 → 預覽更新）
+- [x] 實作「同上」功能（套用前一個浮水印的透明度和尺寸）
+- [x] 實作新增/刪除浮水印（預設 3 個欄位 + 「更多」按鈕可新增）
+- [x] 用 Zustand 管理浮水印狀態（watermarkStore）
+
+### 技術細節
+
+#### 新增元件
+| 元件 | 路徑 | 功能 |
+|------|------|------|
+| WatermarkOverlay | `src/components/WatermarkOverlay/` | 疊加層容器，計算影片實際顯示區域（考慮 letterbox） |
+| WatermarkOverlayItem | `src/components/WatermarkOverlay/` | 單個浮水印：拖動定位 + 四角 resize handle |
+| WatermarkCard | `src/components/WatermarkPanel/` | 浮水印屬性卡片（位置/尺寸/透明度/同上） |
+
+#### 新增 Store / Hooks / Types
+| 項目 | 路徑 | 功能 |
+|------|------|------|
+| watermarkStore | `src/stores/watermarkStore.ts` | Zustand store，管理浮水印列表、選取、CRUD |
+| useWatermarkImport | `src/hooks/useWatermarkImport.ts` | 浮水印圖片匯入（Tauri dialog + Image 載入） |
+| WatermarkItem type | `src/types/watermark.ts` | 浮水印型別定義 |
+
+#### 座標系統
+- 所有座標使用比例值（0–1），相對於影片解析度
+- 預覽時根據影片實際顯示區域（考慮 letterbox/pillarbox）轉換為像素
+- 面板顯示像素值（基於原始影片解析度），輸入時自動轉換回比例
+- ResizeObserver 監聽容器尺寸變化，即時重新計算疊加位置
+
+#### 鍵盤快捷鍵
+| 快捷鍵 | 功能 |
+|--------|------|
+| Delete / Backspace | 刪除選中浮水印 |
+| Escape | 取消選取 |
+| Arrow Keys | 微調位置（~1px） |
+| Shift + Arrow Keys | 微調位置（~10px） |
 
 ---
 
