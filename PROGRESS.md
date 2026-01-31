@@ -10,6 +10,7 @@
 | **Phase 3** | 透明度 + 移動效果 | ✅ 已完成 | 2026-02-02 |
 | **Phase 4** | 儲存設定 + 批次處理 | ✅ 已完成 | 2026-02-02 |
 | **Phase 5** | 跨平台打包 + 測試 | ✅ 已完成 | 2026-02-02 |
+| **Phase 6** | 模組化系統 + 基礎剪輯功能 | ✅ 已完成 | 2026-02-02 |
 
 ---
 
@@ -411,3 +412,131 @@ GitHub Release (tag v*)
     → 彈出更新對話框
     → 自動下載 + 安裝
 ```
+
+---
+
+## Phase 6 — 模組化系統 + 基礎剪輯功能
+
+**狀態：✅ 已完成**
+**日期：2026-02-02**
+
+### 完成項目
+
+#### Part A — 模組化系統
+- [x] 建立 `moduleStore.ts`（Zustand），管理啟用的功能模組
+- [x] 預設模組：watermark（預設開啟）
+- [x] 可選模組：trim（剪輯）、text（文字字幕）、audio（音訊）、filters（濾鏡）、ai（AI工具）
+- [x] 首次啟動的功能選擇畫面（WelcomeScreen）
+  - 列出所有模組，watermark 預設勾選，分類顯示
+  - 「開始使用」按鈕
+  - 設定存到 Tauri app data `modules.json`
+- [x] 設定頁面中的「功能模組」區塊（ModuleSettings dialog），可隨時開關
+- [x] UI 條件渲染：各面板/工具根據模組啟用狀態顯示隱藏
+
+#### Part B — 基礎剪輯功能（trim 模組）
+- [x] 時間軸 UI（Timeline）— 底部可縮放的時間軸條
+  - 播放頭（Playhead）指示目前播放位置，三角形 + 紅線
+  - 可拖動 playhead seek 影片
+  - 縮放控制（放大/縮小時間軸，Ctrl+滾輪 或按鈕）
+  - 時間刻度尺（TimelineRuler）自動根據 zoom 調整間隔
+- [x] 影片裁切（Trim）— 在時間軸上設定 in/out 點
+  - 拖動起點/終點 handle（clip 左右邊緣）
+  - 顯示選取範圍（clip 以彩色區塊呈現）
+  - FFmpeg `-ss -to` 裁切（Rust 後端）
+- [x] 影片分割（Split）— 在 playhead 位置切割
+  - 分割按鈕 + S 鍵快捷鍵 → 分成兩段
+  - 時間軸上顯示多個片段
+  - 自動命名片段（(1), (2)）
+- [x] 片段管理
+  - 刪除片段（選取後點擊刪除按鈕）
+  - 片段排序（拖放重新排列）
+- [x] 影片合併輸出（Concat）
+  - 多片段 → FFmpeg concat demuxer → 單一影片輸出
+  - 進度事件推送到前端
+
+### 技術細節
+
+#### 新增的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/module.ts` | **新增** — ModuleDefinition, ModuleId, ModuleConfig 型別，ALL_MODULES 常數 |
+| `src/types/timeline.ts` | **新增** — TimelineClip, TimelineState, TrimMode 型別，TIMELINE_ZOOM 常數 |
+| `src/stores/moduleStore.ts` | **新增** — 模組管理 Zustand store（啟用/停用/持久化） |
+| `src/stores/timelineStore.ts` | **新增** — 時間軸 Zustand store（clips/playhead/zoom/split/trim/reorder） |
+| `src/hooks/useTimeline.ts` | **新增** — 時間軸操作 hook（匯出/裁切/進度監聽） |
+| `src/components/WelcomeScreen/WelcomeScreen.tsx` | **新增** — 首次啟動功能選擇畫面 |
+| `src/components/SettingsPanel/ModuleSettings.tsx` | **新增** — 模組設定對話框（toggle switches） |
+| `src/components/Timeline/Timeline.tsx` | **新增** — 主時間軸組件（playhead/clips/toolbar） |
+| `src/components/Timeline/TimelineRuler.tsx` | **新增** — 時間刻度尺 |
+| `src/components/Timeline/TimelineClipItem.tsx` | **新增** — 單個片段 UI（trim handles/拖放） |
+
+#### 修改的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/App.tsx` | 整合 WelcomeScreen、ModuleSettings、Timeline，模組條件渲染 |
+| `src/components/VideoPreview/VideoPreview.tsx` | 接受 videoRef prop 向下傳遞 |
+| `src/components/VideoPreview/VideoPlayer.tsx` | 使用共享 videoRef，模組感知（隱藏進度條當 timeline 啟用），初始化 timeline |
+| `src/components/BottomToolbar/BottomToolbar.tsx` | 模組感知按鈕，新增「匯出剪輯」按鈕 |
+| `src/types/index.ts` | 匯出新型別 |
+
+#### 新增的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/trim.rs` | **新增** — trim_video + concat_videos + ClipSegment 型別（5 tests） |
+| `src-tauri/src/commands/timeline.rs` | **新增** — trim_video_clip、concat_video_clips、get_timeline_progress commands |
+
+#### 修改的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/mod.rs` | 註冊 trim 模組 |
+| `src-tauri/src/commands/mod.rs` | 註冊 timeline 模組 |
+| `src-tauri/src/lib.rs` | 註冊 3 個新 Tauri commands |
+
+#### 模組系統架構
+```
+首次啟動 → modules.json 不存在
+    → WelcomeScreen 顯示
+    → 用戶選擇模組 + 「開始使用」
+    → moduleStore.setModules() + completeSetup()
+    → 寫入 modules.json 到 Tauri app data
+    → App 主畫面根據 isEnabled() 條件渲染
+
+之後啟動 → 讀取 modules.json
+    → 直接進入主畫面
+    → 標題列 ⚙️ 模組 按鈕 → ModuleSettings 對話框
+    → toggle 即時生效 + 自動存檔
+```
+
+#### 時間軸架構
+```
+VideoPlayer onLoadedMetadata
+    → timelineStore.initFromVideo(path, url, duration, name)
+    → 建立單一 clip 覆蓋整個影片
+
+Timeline 組件
+    ├── TimelineRuler（時間刻度）
+    ├── TimelineClipItem[] （片段）
+    │   ├── 左右 trim handles
+    │   └── 拖放重排
+    └── Playhead（播放頭）
+        ├── 拖動 → setPlayheadTime → video.currentTime
+        └── video timeupdate → setPlayheadTime（雙向同步）
+
+操作流程：
+    Split → splitAtPlayhead() → 找到 playhead 所在 clip → 分成兩段
+    Trim → handleTrimMouseDown → trimClip(id, newStart, newEnd)
+    Delete → deleteClip(id) → 移除片段
+    Reorder → drag & drop → reorderClip(id, newIndex)
+    Export → useTimeline.exportTimeline()
+        → invoke concat_video_clips
+        → Rust: trim 每段 → concat demuxer → 輸出
+```
+
+#### 測試結果
+- Rust 測試：**35 tests passed**（新增 5 個 trim 模組測試）
+- TypeScript 編譯：零錯誤
+
+#### 鍵盤快捷鍵（新增）
+| 快捷鍵 | 功能 |
+|--------|------|
+| S | 在播放頭位置分割片段（trim 模組啟用時） |
