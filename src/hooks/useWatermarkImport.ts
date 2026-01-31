@@ -72,6 +72,7 @@ export function useWatermarkImport() {
         opacity: 100,
         lockAspectRatio: true,
         sameAsAbove: false,
+        movement: { type: 'Static' as const },
       };
 
       addWatermark(wm);

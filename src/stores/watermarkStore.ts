@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { WatermarkItem } from '../types';
+import type { WatermarkItem, MovementMode } from '../types';
 
 interface WatermarkState {
   /** All watermark items */
@@ -13,6 +13,7 @@ interface WatermarkState {
   addWatermark: (wm: WatermarkItem) => void;
   removeWatermark: (id: string) => void;
   updateWatermark: (id: string, updates: Partial<WatermarkItem>) => void;
+  updateMovement: (id: string, movement: MovementMode) => void;
   selectWatermark: (id: string | null) => void;
   addSlot: () => void;
   clearAll: () => void;
@@ -70,6 +71,13 @@ export const useWatermarkStore = create<WatermarkState>((set, get) => ({
 
       return { watermarks };
     }),
+
+  updateMovement: (id, movement) =>
+    set((state) => ({
+      watermarks: state.watermarks.map((w) =>
+        w.id === id ? { ...w, movement } : w,
+      ),
+    })),
 
   selectWatermark: (id) =>
     set({ selectedId: id }),

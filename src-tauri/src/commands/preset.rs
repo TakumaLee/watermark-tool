@@ -74,6 +74,20 @@ fn get_presets_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir.join("presets"))
 }
 
+/// Delete a saved preset file.
+#[tauri::command]
+pub async fn delete_preset(path: String) -> Result<(), String> {
+    let file_path = std::path::Path::new(&path);
+
+    if !file_path.exists() {
+        return Err(format!("Preset file not found: {}", path));
+    }
+
+    tokio::fs::remove_file(file_path)
+        .await
+        .map_err(|e| format!("Failed to delete preset: {}", e))
+}
+
 /// Parse a single preset file into PresetInfo.
 async fn parse_preset_info(path: &std::path::Path) -> Result<PresetInfo, String> {
     let name = path

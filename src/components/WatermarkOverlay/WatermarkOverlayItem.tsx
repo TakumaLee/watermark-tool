@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import type { WatermarkItem } from '../../types';
 import { useWatermarkStore } from '../../stores/watermarkStore';
 import { useVideoStore } from '../../stores/videoStore';
@@ -12,6 +12,106 @@ interface Props {
 
 type ResizeHandle = 'nw' | 'ne' | 'sw' | 'se';
 
+/**
+ * Compute animated position offset for movement preview.
+ * Returns {dx, dy} in pixels (relative to videoRect), and visibility flag.
+ */
+function useMovementPreview(
+  watermark: WatermarkItem,
+  videoRect: { width: number; height: number },
+): { dx: number; dy: number; visible: boolean } {
+  const [offset, setOffset] = useState({ dx: 0, dy: 0, visible: true });
+  const animRef = useRef<number>(0);
+  const startTimeRef = useRef(0);
+
+  useEffect(() => {
+    const movement = watermark.movement;
+
+    // Only animate for non-static modes
+    if (movement.type === 'Static') {
+      setOffset({ dx: 0, dy: 0, visible: true });
+      return;
+    }
+
+    startTimeRef.current = performance.now();
+
+    const animate = (now: number) => {
+      const t = (now - startTimeRef.current) / 1000; // seconds
+
+      if (movement.type === 'Linear') {
+        const speed = movement.speed;
+        const wmW = watermark.width * videoRect.width;
+        const wmH = watermark.height * videoRect.height;
+        const maxX = videoRect.width - wmW;
+        const maxY = videoRect.height - wmH;
+
+        // Ping-pong bounce pattern
+        const bounce = (pos: number, range: number): number => {
+          if (range <= 0) return 0;
+          const mod = ((pos % (2 * range)) + 2 * range) % (2 * range);
+          return Math.abs(mod - range);
+        };
+
+        let dx = 0;
+        let dy = 0;
+
+        const baseX = watermark.x * videoRect.width;
+        const baseY = watermark.y * videoRect.height;
+
+        switch (movement.direction) {
+          case 'horizontal':
+            dx = bounce(baseX + speed * t, maxX) - baseX;
+            break;
+          case 'vertical':
+            dy = bounce(baseY + speed * t, maxY) - baseY;
+            break;
+          case 'diagonal':
+            dx = bounce(baseX + speed * t, maxX) - baseX;
+            dy = bounce(baseY + speed * t, maxY) - baseY;
+            break;
+        }
+
+        setOffset({ dx, dy, visible: true });
+      } else if (movement.type === 'Random') {
+        const interval = movement.interval;
+        const segmentIndex = Math.floor(t / interval);
+        const tInSegment = t - segmentIndex * interval;
+        const visibleDuration = movement.fade_duration > 0
+          ? interval - movement.fade_duration
+          : interval * 0.8;
+        const visible = tInSegment < visibleDuration;
+
+        // Pseudo-random positions based on segment index
+        const wmW = watermark.width * videoRect.width;
+        const wmH = watermark.height * videoRect.height;
+        const maxX = videoRect.width - wmW;
+        const maxY = videoRect.height - wmH;
+        const baseX = watermark.x * videoRect.width;
+        const baseY = watermark.y * videoRect.height;
+
+        // Use same pseudo-random as FFmpeg (mod with primes)
+        const px = maxX > 0 ? ((segmentIndex * 7919) % maxX) : 0;
+        const py = maxY > 0 ? ((segmentIndex * 6271) % maxY) : 0;
+
+        const dx = px - baseX;
+        const dy = py - baseY;
+
+        setOffset({ dx, dy, visible });
+      }
+
+      animRef.current = requestAnimationFrame(animate);
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animRef.current);
+    };
+  }, [watermark.movement, watermark.x, watermark.y, watermark.width, watermark.height, videoRect.width, videoRect.height]);
+
+  return offset;
+}
+
 export function WatermarkOverlayItem({ watermark, isSelected, videoRect }: Props) {
   const { updateWatermark, selectWatermark } = useWatermarkStore();
   const videoInfo = useVideoStore((s) => s.videoInfo);
@@ -19,9 +119,12 @@ export function WatermarkOverlayItem({ watermark, isSelected, videoRect }: Props
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
+  // Movement preview animation
+  const { dx, dy, visible } = useMovementPreview(watermark, videoRect);
+
   // Convert ratio coordinates to pixel positions within the video rect
-  const pixelX = watermark.x * videoRect.width;
-  const pixelY = watermark.y * videoRect.height;
+  const pixelX = watermark.x * videoRect.width + dx;
+  const pixelY = watermark.y * videoRect.height + dy;
   const pixelW = watermark.width * videoRect.width;
   const pixelH = watermark.height * videoRect.height;
 
@@ -116,10 +219,8 @@ export function WatermarkOverlayItem({ watermark, isSelected, videoRect }: Props
 
         // Lock aspect ratio
         if (watermark.lockAspectRatio) {
-          // Use width as the driver
           newH = newW * aspectRatio;
 
-          // Recalculate position for top-anchored handles
           if (handle === 'ne' || handle === 'nw') {
             newY = startY + startH - newH;
           }
@@ -172,9 +273,10 @@ export function WatermarkOverlayItem({ watermark, isSelected, videoRect }: Props
         top: `${pixelY}px`,
         width: `${pixelW}px`,
         height: `${pixelH}px`,
-        opacity: watermark.opacity / 100,
+        opacity: visible ? watermark.opacity / 100 : 0,
         cursor: isDragging ? 'grabbing' : 'grab',
         zIndex: isSelected ? 20 : 10,
+        transition: watermark.movement.type === 'Random' ? 'opacity 0.15s ease' : undefined,
       }}
       onMouseDown={handleMouseDown}
     >
@@ -209,6 +311,13 @@ export function WatermarkOverlayItem({ watermark, isSelected, videoRect }: Props
               onMouseDown={(e) => handleResizeMouseDown(e, handle)}
             />
           ))}
+
+          {/* Movement mode badge */}
+          {watermark.movement.type !== 'Static' && (
+            <div className="absolute -top-5 left-0 text-[9px] text-accent bg-bg-primary/80 px-1.5 py-0.5 rounded pointer-events-none">
+              {watermark.movement.type === 'Linear' ? '↔ 線性移動' : '⚡ 隨機出現'}
+            </div>
+          )}
         </>
       )}
 

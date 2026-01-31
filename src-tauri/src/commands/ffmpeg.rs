@@ -8,11 +8,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::ffmpeg::overlay::{build_filter_complex, quality_to_crf};
 use crate::ffmpeg::probe::probe_video_info;
-use crate::ffmpeg::{VideoInfo, WatermarkConfig};
+use crate::ffmpeg::{BatchItemConfig, BatchProgressEvent, VideoInfo, WatermarkConfig};
 
 /// Global map of running render processes and their progress (0.0 - 1.0).
 static RENDER_PROGRESS: Lazy<Arc<Mutex<HashMap<String, f64>>>> =
     Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
+
+/// Global set of cancelled batch/render IDs.
+static CANCELLED: Lazy<Arc<Mutex<std::collections::HashSet<String>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(std::collections::HashSet::new())));
 
 /// Render state shared between the spawned task and the progress query.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -241,6 +245,283 @@ fn parse_time_string(time: &str) -> Option<f64> {
     } else {
         None
     }
+}
+
+/// Cancel a batch or single render process.
+#[tauri::command]
+pub async fn cancel_render(process_id: String) -> Result<(), String> {
+    if let Ok(mut cancelled) = CANCELLED.lock() {
+        cancelled.insert(process_id.clone());
+    }
+    // Clean up progress
+    if let Ok(mut progress_map) = RENDER_PROGRESS.lock() {
+        progress_map.remove(&process_id);
+    }
+    Ok(())
+}
+
+/// Batch render multiple videos with watermark overlays.
+/// Emits BatchProgressEvent to the frontend via Tauri events.
+#[tauri::command]
+pub async fn batch_render_video(
+    app_handle: tauri::AppHandle,
+    items: Vec<BatchItemConfig>,
+    watermarks: Vec<WatermarkConfig>,
+    quality: String,
+) -> Result<String, String> {
+    use tauri::Emitter;
+
+    let batch_id = format!(
+        "batch_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    );
+
+    let bid = batch_id.clone();
+    let total_count = items.len();
+
+    tokio::task::spawn(async move {
+        for (index, item) in items.iter().enumerate() {
+            // Check if cancelled
+            if let Ok(cancelled) = CANCELLED.lock() {
+                if cancelled.contains(&bid) {
+                    break;
+                }
+            }
+
+            // Emit "processing" event
+            let _ = app_handle.emit(
+                "batch-progress",
+                BatchProgressEvent {
+                    batch_id: bid.clone(),
+                    current_index: index,
+                    total_count,
+                    file_progress: 0.0,
+                    file_status: "processing".to_string(),
+                    error_message: None,
+                    batch_complete: false,
+                },
+            );
+
+            // Probe the video
+            let video_info = match probe_video_info(&item.input_path) {
+                Ok(info) => info,
+                Err(e) => {
+                    let _ = app_handle.emit(
+                        "batch-progress",
+                        BatchProgressEvent {
+                            batch_id: bid.clone(),
+                            current_index: index,
+                            total_count,
+                            file_progress: 0.0,
+                            file_status: "error".to_string(),
+                            error_message: Some(e),
+                            batch_complete: false,
+                        },
+                    );
+                    continue;
+                }
+            };
+
+            // Run FFmpeg render (blocking, in a spawn_blocking)
+            let input = item.input_path.clone();
+            let output = item.output_path.clone();
+            let wms = watermarks.clone();
+            let q = quality.clone();
+            let bid_inner = bid.clone();
+            let app_inner = app_handle.clone();
+            let vw = video_info.width;
+            let vh = video_info.height;
+            let duration = video_info.duration;
+
+            let result = tokio::task::spawn_blocking(move || {
+                run_ffmpeg_render_with_callback(
+                    &input,
+                    &output,
+                    &wms,
+                    &q,
+                    vw,
+                    vh,
+                    duration,
+                    &bid_inner,
+                    index,
+                    total_count,
+                    &app_inner,
+                )
+            })
+            .await;
+
+            match result {
+                Ok(Ok(())) => {
+                    let _ = app_handle.emit(
+                        "batch-progress",
+                        BatchProgressEvent {
+                            batch_id: bid.clone(),
+                            current_index: index,
+                            total_count,
+                            file_progress: 1.0,
+                            file_status: "complete".to_string(),
+                            error_message: None,
+                            batch_complete: false,
+                        },
+                    );
+                }
+                Ok(Err(e)) => {
+                    let _ = app_handle.emit(
+                        "batch-progress",
+                        BatchProgressEvent {
+                            batch_id: bid.clone(),
+                            current_index: index,
+                            total_count,
+                            file_progress: 0.0,
+                            file_status: "error".to_string(),
+                            error_message: Some(e),
+                            batch_complete: false,
+                        },
+                    );
+                }
+                Err(e) => {
+                    let _ = app_handle.emit(
+                        "batch-progress",
+                        BatchProgressEvent {
+                            batch_id: bid.clone(),
+                            current_index: index,
+                            total_count,
+                            file_progress: 0.0,
+                            file_status: "error".to_string(),
+                            error_message: Some(format!("Task error: {}", e)),
+                            batch_complete: false,
+                        },
+                    );
+                }
+            }
+        }
+
+        // Emit batch complete
+        let _ = app_handle.emit(
+            "batch-progress",
+            BatchProgressEvent {
+                batch_id: bid.clone(),
+                current_index: total_count.saturating_sub(1),
+                total_count,
+                file_progress: 1.0,
+                file_status: "complete".to_string(),
+                error_message: None,
+                batch_complete: true,
+            },
+        );
+
+        // Clean up cancel set
+        if let Ok(mut cancelled) = CANCELLED.lock() {
+            cancelled.remove(&bid);
+        }
+    });
+
+    Ok(batch_id)
+}
+
+/// Run FFmpeg render with progress callback via Tauri events (for batch processing).
+fn run_ffmpeg_render_with_callback(
+    input: &str,
+    output: &str,
+    watermarks: &[WatermarkConfig],
+    quality: &str,
+    video_width: u32,
+    video_height: u32,
+    duration: f64,
+    batch_id: &str,
+    current_index: usize,
+    total_count: usize,
+    app_handle: &tauri::AppHandle,
+) -> Result<(), String> {
+    use tauri::Emitter;
+
+    let (crf, preset) = quality_to_crf(quality);
+
+    let mut args: Vec<String> = Vec::new();
+    args.push("-y".to_string());
+    args.push("-i".to_string());
+    args.push(input.to_string());
+
+    let filter_result = build_filter_complex(watermarks, video_width, video_height);
+    args.extend(filter_result.input_args);
+
+    if !filter_result.filter_complex.is_empty() {
+        args.push("-filter_complex".to_string());
+        args.push(filter_result.filter_complex);
+        args.push("-map".to_string());
+        args.push(filter_result.output_label);
+        args.push("-map".to_string());
+        args.push("0:a?".to_string());
+    }
+
+    args.push("-c:v".to_string());
+    args.push("libx264".to_string());
+    args.push("-crf".to_string());
+    args.push(crf.to_string());
+    args.push("-preset".to_string());
+    args.push(preset.to_string());
+    args.push("-c:a".to_string());
+    args.push("copy".to_string());
+    args.push("-progress".to_string());
+    args.push("pipe:2".to_string());
+    args.push(output.to_string());
+
+    log::info!("Batch FFmpeg: ffmpeg {}", args.join(" "));
+
+    let mut child = Command::new("ffmpeg")
+        .args(&args)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn ffmpeg: {}. Is FFmpeg installed?", e))?;
+
+    if let Some(stderr) = child.stderr.take() {
+        let reader = BufReader::new(stderr);
+        let bid = batch_id.to_string();
+
+        for line in reader.lines() {
+            // Check cancellation
+            if let Ok(cancelled) = CANCELLED.lock() {
+                if cancelled.contains(&bid) {
+                    let _ = child.kill();
+                    return Err("Cancelled".to_string());
+                }
+            }
+
+            if let Ok(line) = line {
+                if let Some(progress) = parse_ffmpeg_progress(&line, duration) {
+                    let _ = app_handle.emit(
+                        "batch-progress",
+                        BatchProgressEvent {
+                            batch_id: bid.clone(),
+                            current_index,
+                            total_count,
+                            file_progress: progress.clamp(0.0, 0.99),
+                            file_status: "processing".to_string(),
+                            error_message: None,
+                            batch_complete: false,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    let status = child
+        .wait()
+        .map_err(|e| format!("Failed to wait for ffmpeg: {}", e))?;
+
+    if !status.success() {
+        return Err(format!(
+            "FFmpeg exited with status: {}",
+            status.code().unwrap_or(-1)
+        ));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

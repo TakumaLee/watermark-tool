@@ -7,8 +7,8 @@
 | **Phase 0** | 技術研究 + UI/UX 設計 | ✅ 已完成 | 2026-01-31 |
 | **Phase 1** | 基礎框架 + 影片匯入 + 預覽 | ✅ 已完成 | 2026-02-01 |
 | **Phase 2** | 浮水印匯入 + 拖放定位 + 尺寸調整 | ✅ 已完成 | 2026-02-01 |
-| **Phase 3** | 透明度 + 移動效果 | ⏳ 待開始 | - |
-| **Phase 4** | 儲存設定 + 批次處理 | ⏳ 待開始 | - |
+| **Phase 3** | 透明度 + 移動效果 | ✅ 已完成 | 2026-02-02 |
+| **Phase 4** | 儲存設定 + 批次處理 | ✅ 已完成 | 2026-02-02 |
 | **Phase 5** | 跨平台打包 + 測試 | ⏳ 待開始 | - |
 
 ---
@@ -179,31 +179,143 @@ src/
 
 ---
 
-## Phase 3 — 透明度 + 移動效果（待開始）
+## Phase 3 — 透明度 + 移動效果
 
-### 預計工作
+**狀態：✅ 已完成**
+**日期：2026-02-02**
 
-- [ ] 實作透明度滑桿（即時預覽）
-- [ ] 實作固定模式 FFmpeg 命令組裝
-- [ ] 實作線性移動模式（速度設定 + FFmpeg 表達式）
-- [ ] 實作隨機出現模式（頻率設定 + FFmpeg 表達式）
-- [ ] 實作單檔輸出流程
-- [ ] 實作輸出設定對話框
-- [ ] 實作渲染進度顯示
+### 完成項目
+
+- [x] 實作透明度滑桿（即時預覽，CSS opacity 直接套用在 WatermarkOverlayItem）
+- [x] 實作移動方式選擇（三選一 radio：固定 / 線性移動 / 隨機出現）
+- [x] 實作固定模式 FFmpeg overlay 命令組裝（Rust 端，靜態 x/y 座標）
+- [x] 實作線性移動模式（速度滑桿 + 慢/中/快預設 + 方向選擇，FFmpeg ping-pong bounce 表達式）
+- [x] 實作隨機出現模式（頻率滑桿 + 淡入淡出選項，FFmpeg enable + 偽隨機座標表達式）
+- [x] 實作單檔輸出流程（點擊「輸出」→ 輸出設定對話框 → Rust render_video → FFmpeg 渲染）
+- [x] 實作輸出設定對話框（格式 mp4/mov、品質四級選擇、Tauri save dialog 選擇路徑）
+- [x] 實作渲染進度顯示（FFmpeg stderr 解析 out_time_us/time= 百分比，前端 polling 進度條）
+- [x] 移動方式預覽動畫（useMovementPreview hook，前端 requestAnimationFrame 模擬移動效果）
+
+### 技術細節
+
+#### 新增 / 修改的前端檔案
+| 檔案 | 變更 |
+|------|------|
+| `src/types/watermark.ts` | 新增 MovementMode、OutputQuality、RenderState 等型別 |
+| `src/stores/watermarkStore.ts` | 新增 `updateMovement` action |
+| `src/stores/renderStore.ts` | **新增** — 渲染狀態 Zustand store |
+| `src/hooks/useRender.ts` | **新增** — 渲染流程 hook（invoke render_video + polling 進度） |
+| `src/hooks/useWatermarkImport.ts` | 新增 movement 預設值 |
+| `src/components/WatermarkPanel/WatermarkCard.tsx` | 啟用透明度滑桿、啟用移動方式 radio + 設定面板 |
+| `src/components/WatermarkOverlay/WatermarkOverlayItem.tsx` | 新增 useMovementPreview hook（動畫預覽） |
+| `src/components/BottomToolbar/BottomToolbar.tsx` | 連接輸出對話框 + 渲染進度 |
+| `src/components/dialogs/OutputDialog.tsx` | **新增** — 輸出設定對話框 |
+| `src/components/dialogs/RenderProgress.tsx` | **新增** — 渲染進度條元件 |
+
+#### Rust 後端（Phase 1 已建立，Phase 3 驗證整合）
+| 功能 | 位置 |
+|------|------|
+| FFmpeg overlay filter 組裝 | `ffmpeg/overlay.rs` — build_filter_complex、三種 movement 表達式 |
+| 渲染命令執行 + 進度追蹤 | `commands/ffmpeg.rs` — render_video、get_render_progress |
+| 透明度 | `colorchannelmixer=aa={opacity}` 在 filter chain 中 |
+| 線性移動 | `overlay=x='abs(mod(...)-(W-w))':y=...` ping-pong bounce |
+| 隨機出現 | `overlay=x='mod(floor(t/interval)*prime, max)':enable='between(...)'` |
+
+#### 移動方式預覽動畫
+- 使用 `requestAnimationFrame` 在前端即時計算浮水印位移
+- 線性移動：模擬 FFmpeg 的 ping-pong bounce 邏輯
+- 隨機出現：模擬 FFmpeg 的偽隨機座標 + 顯隱切換
+- 選中浮水印時顯示移動模式 badge（↔ 線性移動 / ⚡ 隨機出現）
+
+#### 輸出流程
+1. 使用者點擊「開始輸出」→ 開啟 OutputDialog
+2. 選擇格式（mp4/mov）、品質（原始/高/中/低）
+3. 點擊「選擇路徑並輸出」→ Tauri save dialog 選路徑
+4. invoke `render_video` → Rust 組裝 FFmpeg 命令並非同步執行
+5. 前端每 500ms polling `get_render_progress` 更新進度條
+6. 完成/失敗後顯示結果通知
 
 ---
 
-## Phase 4 — 儲存設定 + 批次處理（待開始）
+## Phase 4 — 儲存設定 + 批次處理
 
-### 預計工作
+**狀態：✅ 已完成**
+**日期：2026-02-02**
 
-- [ ] 實作設定檔儲存（JSON）
-- [ ] 實作設定檔載入
-- [ ] 實作儲存/載入對話框
-- [ ] 實作批次處理對話框
-- [ ] 實作批次命名邏輯
-- [ ] 實作批次處理進度追蹤
-- [ ] 實作系統通知（完成提醒）
+### 完成項目
+
+- [x] 實作設定檔儲存（JSON 格式，含版本號 + 所有浮水印配置：位置、尺寸、透明度、移動方式）
+- [x] 實作設定檔載入（讀取 JSON → 還原所有浮水印狀態，含圖片重載 + 尺寸偵測）
+- [x] 實作儲存/載入對話框（PresetDialog：儲存為檔案 / 從檔案載入 / 快速儲存到 app data / 已儲存清單管理）
+- [x] 實作批次處理對話框（BatchDialog：選取多個影片 / 全選取消全選 / 不支援檔案標記）
+- [x] 實作批次命名邏輯（自動命名 _watermarked / 自訂前綴 / 自訂後綴）
+- [x] 實作批次處理進度追蹤（BatchProgressDialog：整體進度條 + 單檔進度 + 檔案狀態圖示）
+- [x] 實作系統通知（tauri-plugin-notification，批次處理完成後發送通知）
+- [x] 底部工具列「儲存設定」和「批次處理」按鈕接上功能
+- [x] 實作批次取消功能（Rust 端 cancel set + 前端 cancel 按鈕）
+- [x] 實作設定檔刪除功能（從 app data 清除）
+
+### 技術細節
+
+#### 設定檔 JSON Schema（version 1）
+```json
+{
+  "version": 1,
+  "name": "設定名稱",
+  "createdAt": "2026-02-02T12:00:00.000Z",
+  "watermarks": [
+    {
+      "name": "logo.png",
+      "filePath": "/path/to/logo.png",
+      "x": 0.05,
+      "y": 0.05,
+      "width": 0.15,
+      "height": 0.08,
+      "opacity": 80,
+      "lockAspectRatio": true,
+      "sameAsAbove": false,
+      "movement": { "type": "Static" }
+    }
+  ]
+}
+```
+
+#### 新增 / 修改的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/preset.ts` | **新增** — PresetConfig, BatchFileItem, BatchProgressEvent 等型別 |
+| `src/types/index.ts` | 新增 preset 型別匯出 |
+| `src/stores/batchStore.ts` | **新增** — 批次處理狀態 Zustand store |
+| `src/hooks/usePreset.ts` | **新增** — 儲存/載入/列表/刪除設定檔 |
+| `src/hooks/useBatch.ts` | **新增** — 批次處理邏輯（選檔 + 命名 + 啟動 + 取消 + 通知） |
+| `src/components/dialogs/PresetDialog.tsx` | **新增** — 設定檔儲存/載入對話框 |
+| `src/components/dialogs/BatchDialog.tsx` | **新增** — 批次處理設定對話框 |
+| `src/components/dialogs/BatchProgressDialog.tsx` | **新增** — 批次處理進度對話框 |
+| `src/components/dialogs/index.ts` | 新增 PresetDialog, BatchDialog, BatchProgressDialog 匯出 |
+| `src/components/BottomToolbar/BottomToolbar.tsx` | 連接儲存設定 + 批次處理對話框 |
+
+#### Rust 後端修改
+| 功能 | 位置 |
+|------|------|
+| 批次渲染命令 | `commands/ffmpeg.rs` — `batch_render_video`：非同步遍歷影片，emit 進度事件 |
+| 批次進度事件 | `ffmpeg/mod.rs` — `BatchProgressEvent`：透過 Tauri event 推送到前端 |
+| 渲染取消機制 | `commands/ffmpeg.rs` — `cancel_render` + `CANCELLED` set |
+| 設定檔刪除 | `commands/preset.rs` — `delete_preset` |
+| 通知插件 | `lib.rs` — `tauri_plugin_notification::init()` |
+
+#### 批次處理架構
+```
+前端 BatchDialog (選檔 + 設定)
+    ↓ invoke batch_render_video
+Rust 端 tokio::spawn async task
+    ↓ 遍歷每個影片
+    ↓ spawn_blocking → FFmpeg 渲染
+    ↓ emit "batch-progress" 事件 (每個 progress line)
+前端 listen("batch-progress")
+    ↓ 更新 batchStore
+    ↓ BatchProgressDialog 顯示進度
+    ↓ 完成後 sendNotification()
+```
 
 ---
 

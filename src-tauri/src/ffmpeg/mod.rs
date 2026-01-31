@@ -64,3 +64,29 @@ pub struct PresetInfo {
     pub watermark_count: usize,
     pub modified: String,
 }
+
+/// Batch processing item sent from the frontend
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BatchItemConfig {
+    pub input_path: String,
+    pub output_path: String,
+}
+
+/// Batch progress event emitted to frontend
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BatchProgressEvent {
+    /// Overall batch job id
+    pub batch_id: String,
+    /// Index of the current file being processed (0-based)
+    pub current_index: usize,
+    /// Total number of files
+    pub total_count: usize,
+    /// Current file's render progress (0.0 - 1.0)
+    pub file_progress: f64,
+    /// Status of the current file: "processing", "complete", "error"
+    pub file_status: String,
+    /// Error message if file_status is "error"
+    pub error_message: Option<String>,
+    /// Whether the entire batch is complete
+    pub batch_complete: bool,
+}
