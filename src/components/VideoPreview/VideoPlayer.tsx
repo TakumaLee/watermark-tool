@@ -1,10 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useVideoStore } from '../../stores/videoStore';
+import { useWatermarkStore } from '../../stores/watermarkStore';
 import { formatTime } from '../../utils/formatTime';
 import { getAspectRatioLabel } from '../../utils/aspectRatio';
+import { WatermarkOverlay } from '../WatermarkOverlay';
 
 export function VideoPlayer() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const { videoUrl, videoInfo } = useVideoStore();
 
@@ -12,9 +15,17 @@ export function VideoPlayer() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
 
-  // Sync play state
-  const togglePlay = useCallback(() => {
+  // Expose elements for overlay after mount
+  useEffect(() => {
+    setVideoElement(videoRef.current);
+    setContainerElement(containerRef.current);
+  }, []);
+
+  // Deselect watermark when clicking on video
+  const handleVideoClick = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
 
@@ -25,17 +36,47 @@ export function VideoPlayer() {
     }
   }, []);
 
-  // Keyboard: space to play/pause
+  // Keyboard: space to play/pause, delete to remove watermark, arrows to nudge
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && e.target === document.body) {
+      // Don't handle if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.code === 'Space') {
         e.preventDefault();
-        togglePlay();
+        handleVideoClick();
+      } else if (e.code === 'Delete' || e.code === 'Backspace') {
+        const { selectedId, removeWatermark } = useWatermarkStore.getState();
+        if (selectedId && e.target === document.body) {
+          e.preventDefault();
+          removeWatermark(selectedId);
+        }
+      } else if (e.code === 'Escape') {
+        useWatermarkStore.getState().selectWatermark(null);
+      } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+        const { selectedId, watermarks, updateWatermark } = useWatermarkStore.getState();
+        if (!selectedId) return;
+        e.preventDefault();
+
+        const wm = watermarks.find((w) => w.id === selectedId);
+        if (!wm) return;
+
+        const step = e.shiftKey ? 0.01 : 0.001; // ~10px or ~1px
+        let { x, y } = wm;
+
+        switch (e.code) {
+          case 'ArrowUp': y = Math.max(0, y - step); break;
+          case 'ArrowDown': y = Math.min(1 - wm.height, y + step); break;
+          case 'ArrowLeft': x = Math.max(0, x - step); break;
+          case 'ArrowRight': x = Math.min(1 - wm.width, x + step); break;
+        }
+
+        updateWatermark(selectedId, { x, y });
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay]);
+  }, [handleVideoClick]);
 
   // Seek via progress bar click
   const handleProgressClick = useCallback(
@@ -84,8 +125,11 @@ export function VideoPlayer() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Video container: fills available space */}
-      <div className="flex-1 flex items-center justify-center bg-black/40 rounded-lg overflow-hidden min-h-0">
+      {/* Video container with watermark overlay */}
+      <div
+        ref={containerRef}
+        className="flex-1 flex items-center justify-center bg-black/40 rounded-lg overflow-hidden min-h-0 relative"
+      >
         <video
           ref={videoRef}
           src={videoUrl ?? undefined}
@@ -103,8 +147,14 @@ export function VideoPlayer() {
             }
           }}
           onEnded={() => setIsPlaying(false)}
-          onClick={togglePlay}
+          onClick={handleVideoClick}
           playsInline
+        />
+
+        {/* Watermark overlay */}
+        <WatermarkOverlay
+          videoElement={videoElement}
+          containerElement={containerElement}
         />
       </div>
 
@@ -112,7 +162,7 @@ export function VideoPlayer() {
       <div className="flex items-center gap-3 mt-3 px-1">
         {/* Play/Pause button */}
         <button
-          onClick={togglePlay}
+          onClick={handleVideoClick}
           className="w-8 h-8 flex items-center justify-center text-text-primary
                      hover:text-accent transition-colors duration-150 text-lg flex-shrink-0"
           title={isPlaying ? '暫停' : '播放'}

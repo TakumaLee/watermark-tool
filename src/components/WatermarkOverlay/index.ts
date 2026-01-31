@@ -1,0 +1,1 @@
+export { WatermarkOverlay } from './WatermarkOverlay';
