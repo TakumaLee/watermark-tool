@@ -6,7 +6,11 @@ import { EmptyState } from './EmptyState';
 import { VideoPlayer } from './VideoPlayer';
 import { LoadingState } from './LoadingState';
 
-export function VideoPreview() {
+interface VideoPreviewProps {
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+}
+
+export function VideoPreview({ videoRef }: VideoPreviewProps) {
   const { videoUrl, isLoading, error } = useVideoStore();
   const { importFromPath } = useVideoImport();
   const [isDragOver, setIsDragOver] = useState(false);
@@ -66,7 +70,7 @@ export function VideoPreview() {
         {isLoading ? (
           <LoadingState />
         ) : videoUrl ? (
-          <VideoPlayer />
+          <VideoPlayer videoRef={videoRef} />
         ) : (
           <EmptyState isDragOver={isDragOver} />
         )}

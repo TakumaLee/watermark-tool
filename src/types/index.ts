@@ -4,3 +4,7 @@ export type { WatermarkItem, MovementMode, MovementDirection, SpeedPreset, Outpu
 export { SUPPORTED_WATERMARK_EXTENSIONS, DEFAULT_WATERMARK_SIZE, SPEED_PRESET_VALUES } from './watermark';
 export type { PresetConfig, PresetWatermarkConfig, PresetInfo, BatchNamingMode, BatchOutputMode, BatchFileItem, BatchSettings, BatchProgressEvent, BatchFileStatus } from './preset';
 export { PRESET_SCHEMA_VERSION } from './preset';
+export type { ModuleDefinition, ModuleId, ModuleConfig } from './module';
+export { ALL_MODULES, MODULE_CONFIG_VERSION } from './module';
+export type { TimelineClip, TimelineState, TrimMode } from './timeline';
+export { TIMELINE_ZOOM } from './timeline';

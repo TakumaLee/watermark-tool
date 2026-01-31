@@ -33,6 +33,10 @@ pub fn run() {
             commands::preset::get_presets_dir,
             commands::preset::list_presets,
             commands::preset::delete_preset,
+            // Timeline commands
+            commands::timeline::trim_video_clip,
+            commands::timeline::concat_video_clips,
+            commands::timeline::get_timeline_progress,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

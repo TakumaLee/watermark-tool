@@ -4,6 +4,9 @@ import { useVideoStore } from '../../stores/videoStore';
 import { useWatermarkStore } from '../../stores/watermarkStore';
 import { useRenderStore } from '../../stores/renderStore';
 import { useBatchStore } from '../../stores/batchStore';
+import { useModuleStore } from '../../stores/moduleStore';
+import { useTimelineStore } from '../../stores/timelineStore';
+import { useTimeline } from '../../hooks/useTimeline';
 import { OutputDialog } from '../dialogs/OutputDialog';
 import { RenderProgress } from '../dialogs/RenderProgress';
 import { PresetDialog } from '../dialogs/PresetDialog';
@@ -16,6 +19,11 @@ export function BottomToolbar() {
   const watermarks = useWatermarkStore((s) => s.watermarks);
   const renderState = useRenderStore((s) => s.renderState);
   const batchState = useBatchStore((s) => s.batchState);
+  const isWatermarkEnabled = useModuleStore((s) => s.isEnabled('watermark'));
+  const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
+  const clips = useTimelineStore((s) => s.clips);
+  const { exportTimeline, isProcessing: isTimelineProcessing, progress: timelineProgress } = useTimeline();
+
   const [showOutputDialog, setShowOutputDialog] = useState(false);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
   const [showBatchDialog, setShowBatchDialog] = useState(false);
@@ -24,12 +32,23 @@ export function BottomToolbar() {
   const hasVideo = !!videoUrl;
   const hasWatermarks = watermarks.length > 0;
   const canOutput = hasVideo && hasWatermarks && renderState.status !== 'rendering';
+  const canExportTimeline = hasVideo && clips.length > 0 && !isTimelineProcessing;
   const isBatchProcessing = batchState.status === 'processing';
 
   return (
     <>
       {/* Render progress bar (shows above toolbar when rendering) */}
       <RenderProgress />
+
+      {/* Timeline export progress */}
+      {isTimelineProcessing && (
+        <div className="h-1 flex-shrink-0 bg-bg-primary">
+          <div
+            className="h-full bg-accent transition-[width] duration-150"
+            style={{ width: `${timelineProgress * 100}%` }}
+          />
+        </div>
+      )}
 
       <div className="h-14 flex-shrink-0 border-t border-border bg-bg-secondary px-4 flex items-center justify-between">
         {/* Left action buttons */}
@@ -42,27 +61,32 @@ export function BottomToolbar() {
             📂 匯入影片
           </button>
 
-          <button
-            onClick={() => setShowPresetDialog(true)}
-            className="px-4 py-1.5 border border-border rounded-lg text-sm text-text-secondary
-                       hover:border-accent hover:text-accent transition-colors duration-150
-                       disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-text-secondary"
-            disabled={!hasWatermarks}
-            title="儲存或載入浮水印設定"
-          >
-            💾 儲存設定
-          </button>
+          {/* Watermark-specific buttons (only when watermark module is enabled) */}
+          {isWatermarkEnabled && (
+            <>
+              <button
+                onClick={() => setShowPresetDialog(true)}
+                className="px-4 py-1.5 border border-border rounded-lg text-sm text-text-secondary
+                           hover:border-accent hover:text-accent transition-colors duration-150
+                           disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-text-secondary"
+                disabled={!hasWatermarks}
+                title="儲存或載入浮水印設定"
+              >
+                💾 儲存設定
+              </button>
 
-          <button
-            onClick={() => setShowBatchDialog(true)}
-            className="px-4 py-1.5 border border-border rounded-lg text-sm text-text-secondary
-                       hover:border-accent hover:text-accent transition-colors duration-150
-                       disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-text-secondary"
-            disabled={!hasWatermarks || isBatchProcessing}
-            title={!hasWatermarks ? '請先新增浮水印' : '批次處理多個影片'}
-          >
-            📋 批次處理
-          </button>
+              <button
+                onClick={() => setShowBatchDialog(true)}
+                className="px-4 py-1.5 border border-border rounded-lg text-sm text-text-secondary
+                           hover:border-accent hover:text-accent transition-colors duration-150
+                           disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-text-secondary"
+                disabled={!hasWatermarks || isBatchProcessing}
+                title={!hasWatermarks ? '請先新增浮水印' : '批次處理多個影片'}
+              >
+                📋 批次處理
+              </button>
+            </>
+          )}
 
           {/* Show batch progress indicator if running */}
           {(batchState.status === 'processing' || batchState.status === 'complete') && (
@@ -76,17 +100,36 @@ export function BottomToolbar() {
           )}
         </div>
 
-        {/* Right primary action */}
-        <button
-          onClick={() => setShowOutputDialog(true)}
-          className="px-6 py-1.5 bg-accent hover:bg-accent/80 text-white rounded-lg text-sm font-medium
-                     transition-colors duration-150
-                     disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-accent"
-          disabled={!canOutput}
-          title={!hasVideo ? '請先匯入影片' : !hasWatermarks ? '請先新增浮水印' : '開始輸出'}
-        >
-          ▶ 開始輸出
-        </button>
+        {/* Right primary actions */}
+        <div className="flex items-center gap-2">
+          {/* Timeline export button (only when trim module is enabled) */}
+          {isTrimEnabled && (
+            <button
+              onClick={exportTimeline}
+              className="px-5 py-1.5 border border-accent/50 hover:bg-accent/10 text-accent rounded-lg text-sm font-medium
+                         transition-colors duration-150
+                         disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={!canExportTimeline}
+              title={!hasVideo ? '請先匯入影片' : clips.length === 0 ? '時間軸沒有片段' : '匯出時間軸'}
+            >
+              🎬 匯出剪輯
+            </button>
+          )}
+
+          {/* Watermark output button (only when watermark module is enabled) */}
+          {isWatermarkEnabled && (
+            <button
+              onClick={() => setShowOutputDialog(true)}
+              className="px-6 py-1.5 bg-accent hover:bg-accent/80 text-white rounded-lg text-sm font-medium
+                         transition-colors duration-150
+                         disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-accent"
+              disabled={!canOutput}
+              title={!hasVideo ? '請先匯入影片' : !hasWatermarks ? '請先新增浮水印' : '開始輸出'}
+            >
+              ▶ 開始輸出
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Dialogs */}

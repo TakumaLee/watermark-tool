@@ -1,15 +1,24 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useVideoStore } from '../../stores/videoStore';
 import { useWatermarkStore } from '../../stores/watermarkStore';
+import { useModuleStore } from '../../stores/moduleStore';
+import { useTimelineStore } from '../../stores/timelineStore';
 import { formatTime } from '../../utils/formatTime';
 import { getAspectRatioLabel } from '../../utils/aspectRatio';
 import { WatermarkOverlay } from '../WatermarkOverlay';
 
-export function VideoPlayer() {
-  const videoRef = useRef<HTMLVideoElement>(null);
+interface VideoPlayerProps {
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+}
+
+export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
+  const internalVideoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = externalVideoRef ?? internalVideoRef;
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
-  const { videoUrl, videoInfo } = useVideoStore();
+  const { videoUrl, videoInfo, videoPath } = useVideoStore();
+  const isWatermarkEnabled = useModuleStore((s) => s.isEnabled('watermark'));
+  const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -22,7 +31,19 @@ export function VideoPlayer() {
   useEffect(() => {
     setVideoElement(videoRef.current);
     setContainerElement(containerRef.current);
-  }, []);
+  }, [videoRef]);
+
+  // Initialize timeline when video loads (if trim module is enabled)
+  useEffect(() => {
+    if (isTrimEnabled && videoInfo && videoPath && duration > 0) {
+      const { clips } = useTimelineStore.getState();
+      // Only init if timeline is empty or video changed
+      if (clips.length === 0 || clips[0].sourcePath !== videoPath) {
+        const fileName = videoPath.split('/').pop()?.split('\\').pop() ?? 'Video';
+        useTimelineStore.getState().initFromVideo(videoPath, videoUrl ?? '', duration, fileName);
+      }
+    }
+  }, [isTrimEnabled, videoInfo, videoPath, videoUrl, duration]);
 
   // Deselect watermark when clicking on video
   const handleVideoClick = useCallback(() => {
@@ -34,9 +55,9 @@ export function VideoPlayer() {
     } else {
       video.pause();
     }
-  }, []);
+  }, [videoRef]);
 
-  // Keyboard: space to play/pause, delete to remove watermark, arrows to nudge
+  // Keyboard: space to play/pause, delete to remove watermark, arrows to nudge, S to split
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't handle if typing in an input
@@ -53,6 +74,11 @@ export function VideoPlayer() {
         }
       } else if (e.code === 'Escape') {
         useWatermarkStore.getState().selectWatermark(null);
+        useTimelineStore.getState().selectClip(null);
+      } else if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey && isTrimEnabled) {
+        // Split at playhead
+        e.preventDefault();
+        useTimelineStore.getState().splitAtPlayhead();
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
         const { selectedId, watermarks, updateWatermark } = useWatermarkStore.getState();
         if (!selectedId) return;
@@ -76,7 +102,7 @@ export function VideoPlayer() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleVideoClick]);
+  }, [handleVideoClick, isTrimEnabled]);
 
   // Seek via progress bar click
   const handleProgressClick = useCallback(
@@ -89,7 +115,7 @@ export function VideoPlayer() {
       const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       video.currentTime = ratio * video.duration;
     },
-    [],
+    [videoRef],
   );
 
   // Seek via drag on progress bar
@@ -117,7 +143,7 @@ export function VideoPlayer() {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     },
-    [handleProgressClick],
+    [handleProgressClick, videoRef],
   );
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -151,56 +177,82 @@ export function VideoPlayer() {
           playsInline
         />
 
-        {/* Watermark overlay */}
-        <WatermarkOverlay
-          videoElement={videoElement}
-          containerElement={containerElement}
-        />
-      </div>
-
-      {/* Playback controls */}
-      <div className="flex items-center gap-3 mt-3 px-1">
-        {/* Play/Pause button */}
-        <button
-          onClick={handleVideoClick}
-          className="w-8 h-8 flex items-center justify-center text-text-primary
-                     hover:text-accent transition-colors duration-150 text-lg flex-shrink-0"
-          title={isPlaying ? '暫停' : '播放'}
-        >
-          {isPlaying ? '⏸' : '▶'}
-        </button>
-
-        {/* Progress bar */}
-        <div
-          ref={progressRef}
-          className="flex-1 h-5 flex items-center cursor-pointer group"
-          onMouseDown={handleProgressMouseDown}
-        >
-          <div className="w-full h-1 bg-border rounded-full relative group-hover:h-1.5 transition-all">
-            <div
-              className="absolute left-0 top-0 h-full bg-accent rounded-full transition-[width] duration-75"
-              style={{ width: `${progress}%` }}
-            />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-accent rounded-full
-                         opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-              style={{ left: `calc(${progress}% - 6px)` }}
-            />
-          </div>
-        </div>
-
-        {/* Time display */}
-        <span className="text-xs text-text-secondary font-mono whitespace-nowrap flex-shrink-0">
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
-
-        {/* Aspect ratio badge */}
-        {aspectLabel && (
-          <span className="text-xs text-text-secondary bg-bg-component px-2 py-0.5 rounded flex-shrink-0">
-            {aspectLabel}
-          </span>
+        {/* Watermark overlay (only if watermark module is enabled) */}
+        {isWatermarkEnabled && (
+          <WatermarkOverlay
+            videoElement={videoElement}
+            containerElement={containerElement}
+          />
         )}
       </div>
+
+      {/* Playback controls (hidden when timeline is active — timeline has its own playhead) */}
+      {!isTrimEnabled && (
+        <div className="flex items-center gap-3 mt-3 px-1">
+          {/* Play/Pause button */}
+          <button
+            onClick={handleVideoClick}
+            className="w-8 h-8 flex items-center justify-center text-text-primary
+                       hover:text-accent transition-colors duration-150 text-lg flex-shrink-0"
+            title={isPlaying ? '暫停' : '播放'}
+          >
+            {isPlaying ? '⏸' : '▶'}
+          </button>
+
+          {/* Progress bar */}
+          <div
+            ref={progressRef}
+            className="flex-1 h-5 flex items-center cursor-pointer group"
+            onMouseDown={handleProgressMouseDown}
+          >
+            <div className="w-full h-1 bg-border rounded-full relative group-hover:h-1.5 transition-all">
+              <div
+                className="absolute left-0 top-0 h-full bg-accent rounded-full transition-[width] duration-75"
+                style={{ width: `${progress}%` }}
+              />
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-accent rounded-full
+                           opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                style={{ left: `calc(${progress}% - 6px)` }}
+              />
+            </div>
+          </div>
+
+          {/* Time display */}
+          <span className="text-xs text-text-secondary font-mono whitespace-nowrap flex-shrink-0">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+
+          {/* Aspect ratio badge */}
+          {aspectLabel && (
+            <span className="text-xs text-text-secondary bg-bg-component px-2 py-0.5 rounded flex-shrink-0">
+              {aspectLabel}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Simplified controls when timeline is active */}
+      {isTrimEnabled && (
+        <div className="flex items-center gap-3 mt-2 px-1">
+          <button
+            onClick={handleVideoClick}
+            className="w-7 h-7 flex items-center justify-center text-text-primary
+                       hover:text-accent transition-colors duration-150 text-sm flex-shrink-0"
+            title={isPlaying ? '暫停' : '播放'}
+          >
+            {isPlaying ? '⏸' : '▶'}
+          </button>
+          <span className="text-xs text-text-secondary font-mono">
+            {formatTime(currentTime)}
+          </span>
+          {aspectLabel && (
+            <span className="text-xs text-text-secondary bg-bg-component px-2 py-0.5 rounded flex-shrink-0 ml-auto">
+              {aspectLabel}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
