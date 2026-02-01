@@ -6,6 +6,7 @@ import { useRenderStore } from '../../stores/renderStore';
 import { useBatchStore } from '../../stores/batchStore';
 import { useModuleStore } from '../../stores/moduleStore';
 import { useTimelineStore } from '../../stores/timelineStore';
+import { useTextStore } from '../../stores/textStore';
 import { useTimeline } from '../../hooks/useTimeline';
 import { OutputDialog } from '../dialogs/OutputDialog';
 import { RenderProgress } from '../dialogs/RenderProgress';
@@ -20,6 +21,7 @@ export function BottomToolbar() {
   const renderState = useRenderStore((s) => s.renderState);
   const batchState = useBatchStore((s) => s.batchState);
   const isWatermarkEnabled = useModuleStore((s) => s.isEnabled('watermark'));
+  const isTextEnabled = useModuleStore((s) => s.isEnabled('text'));
   const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
   const clips = useTimelineStore((s) => s.clips);
   const { exportTimeline, isProcessing: isTimelineProcessing, progress: timelineProgress } = useTimeline();

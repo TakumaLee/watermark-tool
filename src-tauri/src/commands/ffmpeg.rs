@@ -14,6 +14,11 @@ use crate::ffmpeg::{BatchItemConfig, BatchProgressEvent, VideoInfo, WatermarkCon
 static RENDER_PROGRESS: Lazy<Arc<Mutex<HashMap<String, f64>>>> =
     Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
+/// Public accessor for RENDER_PROGRESS (used by text commands).
+pub fn get_render_progress_map() -> Arc<Mutex<HashMap<String, f64>>> {
+    RENDER_PROGRESS.clone()
+}
+
 /// Global set of cancelled batch/render IDs.
 static CANCELLED: Lazy<Arc<Mutex<std::collections::HashSet<String>>>> =
     Lazy::new(|| Arc::new(Mutex::new(std::collections::HashSet::new())));
@@ -201,6 +206,11 @@ fn run_ffmpeg_render(
     }
 
     Ok(())
+}
+
+/// Public version of parse_ffmpeg_progress (for text commands).
+pub fn parse_ffmpeg_progress_pub(line: &str, total_duration: f64) -> Option<f64> {
+    parse_ffmpeg_progress(line, total_duration)
 }
 
 /// Parse FFmpeg progress output.

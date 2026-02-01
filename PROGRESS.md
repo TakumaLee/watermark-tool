@@ -11,6 +11,7 @@
 | **Phase 4** | 儲存設定 + 批次處理 | ✅ 已完成 | 2026-02-02 |
 | **Phase 5** | 跨平台打包 + 測試 | ✅ 已完成 | 2026-02-02 |
 | **Phase 6** | 模組化系統 + 基礎剪輯功能 | ✅ 已完成 | 2026-02-02 |
+| **Phase 7** | 文字疊加 + 字幕 | ✅ 已完成 | 2026-02-02 |
 
 ---
 
@@ -540,3 +541,134 @@ Timeline 組件
 | 快捷鍵 | 功能 |
 |--------|------|
 | S | 在播放頭位置分割片段（trim 模組啟用時） |
+
+---
+
+## Phase 7 — 文字疊加 + 字幕
+
+**狀態：✅ 已完成**
+**日期：2026-02-02**
+
+### 完成項目
+
+#### 文字疊加層
+- [x] TextOverlayItem 組件（類似 WatermarkOverlayItem，但用於文字）
+- [x] 文字內容輸入（雙擊 contentEditable 編輯 + 面板 textarea 編輯）
+- [x] 字體選擇（內建 8 款：Noto Sans TC、Noto Serif TC、PingFang TC、Arial、Times New Roman 等）
+- [x] 字體大小調整（8–200px，基於 1080p 基準自動縮放）
+- [x] 文字顏色選擇（color picker + hex 輸入）
+- [x] 文字描邊（stroke color + width 0–10px）
+- [x] 文字背景色（半透明底，bgColor + bgOpacity 0–100%）
+- [x] 文字對齊（左/中/右按鈕切換）
+- [x] 拖放定位（同浮水印方式，mouse events 限制在影片範圍內）
+- [x] 水平寬度調整（左右 resize handles）
+- [x] 文字在時間軸上的顯示時間範圍（startTime ~ endTime，-1 = 全程）
+
+#### 字幕功能
+- [x] SRT 字幕檔匯入（自寫 parser，解析序號 + 時間 + 多行文字）
+- [x] 字幕列表顯示（面板中列出所有字幕條目，含時間碼）
+- [x] 字幕時間編輯（修改每條字幕的開始/結束時間）
+- [x] 字幕內容編輯（點擊展開，inline textarea 編輯）
+- [x] 字幕預覽（在影片上即時顯示對應時間的字幕，SubtitleDisplay 組件）
+- [x] 字幕樣式統一設定（字體、大小、顏色、描邊、垂直位置）
+- [x] 新增字幕條目（手動添加）
+- [x] 刪除字幕條目（含自動重新編號）
+- [x] 字幕顯示開關
+
+#### FFmpeg 整合
+- [x] Rust 端：drawtext filter 命令組裝（fontfile/font、text、fontsize、fontcolor、borderw、box）
+- [x] 支援中文字體路徑（macOS/Windows/Linux 多路徑搜尋）
+- [x] 字幕燒錄（subtitles filter + ASS force_style）
+- [x] 時間範圍 enable 表達式（between/gte）
+- [x] 多個文字層 + 字幕同時輸出（drawtext chain + subtitles filter 組合）
+- [x] 與浮水印 filter_complex 正確串接（wmout → text → vout）
+- [x] 無浮水印時使用 -vf 簡化路徑
+
+#### 狀態管理
+- [x] textStore.ts（Zustand）— 管理文字層列表、選取、CRUD + 字幕列表、樣式、開關
+- [x] TextPanel 組件（右側面板，text 模組啟用時顯示）
+
+### 技術細節
+
+#### 新增的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/text.ts` | **新增** — TextOverlayItem、SubtitleEntry、SubtitleStyle、FontOption、TextRenderConfig 等型別 |
+| `src/stores/textStore.ts` | **新增** — 文字 & 字幕 Zustand store |
+| `src/utils/srtParser.ts` | **新增** — SRT 解析器（parseSrt/serializeSrt/formatSrtTime） |
+| `src/components/TextOverlay/TextOverlay.tsx` | **新增** — 文字疊加層容器（含影片時間追蹤） |
+| `src/components/TextOverlay/TextOverlayItem.tsx` | **新增** — 單個文字：拖動 + resize + 雙擊編輯 + 時間範圍可見性 |
+| `src/components/TextOverlay/SubtitleDisplay.tsx` | **新增** — 字幕顯示器（即時根據影片時間顯示對應字幕） |
+| `src/components/TextPanel/TextPanel.tsx` | **新增** — 文字 & 字幕右側面板 |
+| `src/components/TextPanel/TextCard.tsx` | **新增** — 文字屬性卡片（完整編輯控制項） |
+| `src/components/TextPanel/SubtitlePanel.tsx` | **新增** — 字幕管理面板（匯入/編輯/樣式） |
+
+#### 修改的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/index.ts` | 匯出新型別 |
+| `src/App.tsx` | 新增 TextPanel 條件渲染 |
+| `src/components/VideoPreview/VideoPlayer.tsx` | 新增 TextOverlay 條件渲染 |
+| `src/components/BottomToolbar/BottomToolbar.tsx` | 新增 text 模組感知 |
+
+#### 新增的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/text.rs` | **新增** — drawtext filter 組裝 + subtitles filter + 字體路徑解析（11 tests） |
+| `src-tauri/src/commands/text.rs` | **新增** — render_with_text 統一渲染命令（watermarks + texts + subtitles） |
+
+#### 修改的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/mod.rs` | 註冊 text 模組 |
+| `src-tauri/src/commands/mod.rs` | 註冊 text 模組 |
+| `src-tauri/src/commands/ffmpeg.rs` | 公開 progress map + progress parser（供 text commands 使用） |
+| `src-tauri/src/lib.rs` | 註冊 render_with_text command |
+
+#### 前端測試（新增）
+| 檔案 | 測試數 |
+|------|--------|
+| `src/utils/srtParser.test.ts` | **10 tests** — SRT 解析/序列化/時間格式化/Windows 換行/邊界情況 |
+| `src/stores/textStore.test.ts` | **14 tests** — 文字 CRUD/選取/清除/字幕設定/更新/刪除重編號/樣式更新 |
+
+#### Rust 測試（新增）
+| 範圍 | 測試數 |
+|------|--------|
+| hex 色碼轉換 | 2 tests |
+| drawtext 轉義 | 1 test |
+| drawtext filter 組裝 | 4 tests（靜態/描邊/時間範圍/背景） |
+| filter chain | 2 tests（空/多個） |
+| enable 表達式 | 1 test |
+| subtitles filter | 1 test |
+
+#### 測試結果
+- Rust 測試：**46 tests passed**（35 existing + 11 新增 text 模組測試）
+- 前端測試：**55 tests passed**（31 existing + 24 新增 text/SRT 測試）
+- TypeScript 編譯：零錯誤
+
+#### 座標系統
+- 文字位置使用比例值（0–1），與浮水印一致
+- 字體大小基於 1080p 解析度，預覽時按影片顯示高度等比縮放
+- 描邊寬度同樣按比例縮放
+
+#### FFmpeg 命令架構
+```
+無浮水印時：
+  ffmpeg -i input.mp4 -vf "drawtext=...,drawtext=...,subtitles=..." output.mp4
+
+有浮水印時：
+  ffmpeg -i input.mp4 -i wm1.png -i wm2.png \
+    -filter_complex "[1]scale...→[wm0];[0:v][wm0]overlay→[wmout]; \
+                     [wmout]drawtext=...,drawtext=...,subtitles=...[vout]" \
+    -map [vout] -map 0:a? output.mp4
+```
+
+#### SRT 解析流程
+```
+用戶點擊「匯入 SRT」
+    → Tauri dialog 選檔（.srt filter）
+    → invoke load_preset 讀取檔案內容
+    → parseSrt() 解析為 SubtitleEntry[]
+    → setSubtitles(entries, filePath)
+    → SubtitleDisplay 根據 currentTime 即時顯示
+```

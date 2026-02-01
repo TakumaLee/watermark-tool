@@ -5,6 +5,7 @@ import { BottomToolbar } from './components/BottomToolbar';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ModuleSettings } from './components/SettingsPanel';
 import { Timeline } from './components/Timeline';
+import { TextPanel } from './components/TextPanel';
 import { useModuleStore } from './stores/moduleStore';
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
   }
 
   const showWatermarkPanel = isEnabled('watermark');
+  const showTextPanel = isEnabled('text');
   const showTimeline = isEnabled('trim');
 
   return (
@@ -62,6 +64,7 @@ function App() {
       <div className="flex-1 flex min-h-0">
         <VideoPreview videoRef={videoRef} />
         {showWatermarkPanel && <WatermarkPanel />}
+        {showTextPanel && <TextPanel />}
       </div>
 
       {/* Timeline (bottom, only when trim module is enabled) */}

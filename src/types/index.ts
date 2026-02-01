@@ -8,3 +8,5 @@ export type { ModuleDefinition, ModuleId, ModuleConfig } from './module';
 export { ALL_MODULES, MODULE_CONFIG_VERSION } from './module';
 export type { TimelineClip, TimelineState, TrimMode } from './timeline';
 export { TIMELINE_ZOOM } from './timeline';
+export type { TextOverlayItem, SubtitleEntry, SubtitleStyle, TextAlign, FontOption, TextRenderConfig, SubtitleRenderConfig } from './text';
+export { BUILT_IN_FONTS, DEFAULT_SUBTITLE_STYLE, DEFAULT_TEXT_OVERLAY } from './text';

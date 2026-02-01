@@ -6,6 +6,7 @@ import { useTimelineStore } from '../../stores/timelineStore';
 import { formatTime } from '../../utils/formatTime';
 import { getAspectRatioLabel } from '../../utils/aspectRatio';
 import { WatermarkOverlay } from '../WatermarkOverlay';
+import { TextOverlay } from '../TextOverlay';
 
 interface VideoPlayerProps {
   videoRef?: React.RefObject<HTMLVideoElement | null>;
@@ -18,6 +19,7 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
   const progressRef = useRef<HTMLDivElement>(null);
   const { videoUrl, videoInfo, videoPath } = useVideoStore();
   const isWatermarkEnabled = useModuleStore((s) => s.isEnabled('watermark'));
+  const isTextEnabled = useModuleStore((s) => s.isEnabled('text'));
   const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -180,6 +182,14 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
         {/* Watermark overlay (only if watermark module is enabled) */}
         {isWatermarkEnabled && (
           <WatermarkOverlay
+            videoElement={videoElement}
+            containerElement={containerElement}
+          />
+        )}
+
+        {/* Text overlay (only if text module is enabled) */}
+        {isTextEnabled && (
+          <TextOverlay
             videoElement={videoElement}
             containerElement={containerElement}
           />

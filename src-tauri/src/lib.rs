@@ -37,6 +37,8 @@ pub fn run() {
             commands::timeline::trim_video_clip,
             commands::timeline::concat_video_clips,
             commands::timeline::get_timeline_progress,
+            // Text commands
+            commands::text::render_with_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

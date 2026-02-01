@@ -1,6 +1,7 @@
 pub mod batch;
 pub mod overlay;
 pub mod probe;
+pub mod text;
 pub mod trim;
 
 use serde::{Deserialize, Serialize};
