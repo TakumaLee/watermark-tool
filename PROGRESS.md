@@ -14,6 +14,7 @@
 | **Phase 7** | 文字疊加 + 字幕 | ✅ 已完成 | 2026-02-02 |
 | **Phase 8** | 音訊處理 | ✅ 已完成 | 2026-02-03 |
 | **Phase 9** | 進階剪輯功能 | ✅ 已完成 | 2026-02-03 |
+| **Phase 10** | 進階輸出 + 發布 | ✅ 已完成 | 2026-02-03 |
 
 ---
 
@@ -983,3 +984,154 @@ Timeline 組件
 - PiPOverlay、CropOverlay 在 VideoPlayer 中條件渲染
 - TransitionIcon 在 Timeline 中條件渲染
 - CSS filter/transform 預覽僅在 filters 模組啟用時生效
+
+---
+
+## Phase 10 — 進階輸出 + 發布
+
+**狀態：✅ 已完成**
+**日期：2026-02-03**
+
+### 完成項目
+
+#### 多格式輸出預設
+- [x] ExportPanel 組件 — 輸出設定面板（平台預設 / GIF / 封面三分頁）
+- [x] 平台預設模板：
+  - YouTube: 1920×1080 / 16:9 / H.264 / AAC / 最高品質
+  - Instagram Reels: 1080×1920 / 9:16 / 最大 90s
+  - TikTok: 1080×1920 / 9:16 / 最大 180s
+  - Twitter: 1280×720 / 16:9 / 最大 140s
+  - 自定義：用戶指定解析度/格式/品質
+- [x] 預設選擇 UI（卡片式，顯示平台 icon + 規格摘要）
+
+#### 自動調整解析度和比例
+- [x] 根據平台預設自動 scale + pad/crop
+- [x] FFmpeg scale + pad filter（加黑邊保持比例）
+- [x] FFmpeg scale + crop filter（裁切適配）
+- [x] 比例模式切換 UI（加黑邊 / 裁切）
+
+#### GIF 輸出
+- [x] GIF 輸出選項（在 ExportPanel GIF 分頁）
+- [x] FFmpeg 兩階段 palette 生成 + GIF 轉換（高品質 GIF）
+- [x] GIF 參數：FPS（10/15/24）、寬度、色彩數（2-256 滑桿）
+- [x] 預估檔案大小（Rust 端計算）
+- [x] 時間範圍選擇（開始/結束時間）
+
+#### 影片封面擷取
+- [x] 從時間軸任意位置擷取封面（thumbnail）— 時間滑桿
+- [x] FFmpeg 單幀擷取 → JPG/PNG
+- [x] 格式選擇（JPG / PNG）
+- [x] 封面儲存 + 擷取結果顯示
+
+#### 輸出佇列
+- [x] ExportQueue 組件 — 佇列管理面板
+- [x] 佇列管理（多個輸出任務排隊，自動依序處理）
+- [x] 每個任務顯示進度條 + 百分比
+- [x] 佇列狀態：等待中 ⏳ / 處理中 🔄 / 完成 ✅ / 失敗 ❌
+- [x] 批次輸出（全平台一次加入佇列）
+- [x] 移除單個任務 / 清除已完成 / 清除全部
+- [x] 自動啟動下一個任務
+
+#### 狀態管理
+- [x] exportStore.ts（Zustand）— 平台選擇、自定義設定、GIF 設定、封面設定、佇列管理
+- [x] ExportPanel + ExportQueue 組件
+- [x] 模組系統整合（`export` 模組，`ModuleId = 'export'`）
+
+### 技術細節
+
+#### 新增的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/export.ts` | **新增** — ExportPlatformPreset, GifExportSettings, ExportTask, PlatformExportConfig 等完整型別 + 常數 |
+| `src/stores/exportStore.ts` | **新增** — 輸出 Zustand store（平台選擇/自定義設定/GIF/封面/佇列 CRUD） |
+| `src/components/ExportPanel/ExportPanel.tsx` | **新增** — 輸出設定面板（三分頁：平台預設/GIF/封面） |
+| `src/components/ExportPanel/index.ts` | **新增** — ExportPanel 匯出 |
+| `src/components/ExportQueue/ExportQueue.tsx` | **新增** — 輸出佇列面板（自動依序處理 + 進度追蹤） |
+| `src/components/ExportQueue/index.ts` | **新增** — ExportQueue 匯出 |
+
+#### 修改的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/index.ts` | 匯出新型別 + 常數 |
+| `src/types/module.ts` | 新增 `export` 模組定義 |
+| `src/App.tsx` | 新增 ExportPanel + ExportQueue 條件渲染（export 模組啟用時） |
+
+#### 新增的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/export.rs` | **新增** — 輸出 filter 組裝（scale+pad/crop, GIF palette, thumbnail, 大小估算）（16 tests） |
+| `src-tauri/src/commands/export.rs` | **新增** — export_platform_video、export_gif、extract_thumbnail、estimate_gif_file_size commands |
+
+#### 修改的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/mod.rs` | 註冊 export 模組 |
+| `src-tauri/src/commands/mod.rs` | 註冊 export 模組 |
+| `src-tauri/src/lib.rs` | 註冊 4 個新 Tauri commands |
+
+#### 前端測試（新增）
+| 檔案 | 測試數 |
+|------|--------|
+| `src/stores/exportStore.test.ts` | **28 tests** — 平台選擇/自定義設定/GIF 設定/封面/佇列 CRUD/批次/清除/getActivePreset/ID 唯一性 |
+
+#### Rust 測試（新增）
+| 範圍 | 測試數 |
+|------|--------|
+| scale+pad filter (pad mode) | 1 test |
+| scale+pad filter (crop mode) | 1 test |
+| platform quality params | 2 tests (highest/low) |
+| GIF palettegen filter | 1 test |
+| GIF paletteuse filter | 1 test |
+| GIF time args | 2 tests (full/range) |
+| thumbnail args | 2 tests (jpg/png) |
+| GIF size estimation | 1 test |
+| duration args | 2 tests (no limit/with limit) |
+| serialization | 3 tests (PlatformExportConfig/GifExportConfig/ThumbnailConfig) |
+
+#### 測試結果
+- Rust 測試：**104 tests passed**（88 existing + 16 新增 export 模組測試）
+- 前端測試：**123 tests passed**（95 existing + 28 新增 exportStore 測試）
+- TypeScript 編譯：零錯誤
+
+#### FFmpeg 命令架構
+
+```
+平台輸出（scale+pad）：
+  ffmpeg -y -i input.mp4 \
+    -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black" \
+    -c:v libx264 -crf 20 -preset medium -c:a aac -b:a 192k \
+    -progress pipe:2 output.mp4
+
+平台輸出（scale+crop）：
+  ffmpeg -y -i input.mp4 \
+    -vf "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920" \
+    -c:v libx264 -crf 20 -preset medium -c:a aac -b:a 192k \
+    -progress pipe:2 output.mp4
+
+平台輸出（含時長限制，Twitter）：
+  ffmpeg -y -i input.mp4 -t 140.000 \
+    -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:black" \
+    -c:v libx264 -crf 20 -preset medium -c:a aac -b:a 192k \
+    -progress pipe:2 output.mp4
+
+GIF 兩階段：
+  # Pass 1: 生成 palette
+  ffmpeg -y -ss 5.000 -to 15.000 -i input.mp4 \
+    -vf "fps=15,scale=480:-1:flags=lanczos,palettegen=max_colors=256" \
+    output.gif.palette.png
+
+  # Pass 2: 使用 palette 生成 GIF
+  ffmpeg -y -ss 5.000 -to 15.000 -i input.mp4 -i output.gif.palette.png \
+    -lavfi "fps=15,scale=480:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=sierra2_4a" \
+    -progress pipe:2 output.gif
+
+封面擷取：
+  ffmpeg -y -ss 10.000 -i input.mp4 -vframes 1 -q:v 2 thumbnail.jpg
+  ffmpeg -y -ss 10.000 -i input.mp4 -vframes 1 -c:v png thumbnail.png
+```
+
+#### 模組系統整合
+- `export` 模組（`ModuleId = 'export'`）控制 ExportPanel 和 ExportQueue 的顯示/隱藏
+- ExportPanel + ExportQueue 在 `isEnabled('export')` 時渲染
+- 輸出佇列自動依序處理，支援多任務排隊
+- 每個任務透過 polling `get_render_progress` 追蹤進度

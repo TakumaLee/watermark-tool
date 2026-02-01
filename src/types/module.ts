@@ -15,7 +15,7 @@ export interface ModuleDefinition {
 }
 
 /** All possible module IDs */
-export type ModuleId = 'watermark' | 'trim' | 'text' | 'audio' | 'filters' | 'ai';
+export type ModuleId = 'watermark' | 'trim' | 'text' | 'audio' | 'filters' | 'export' | 'ai';
 
 /** Module configuration persisted to disk */
 export interface ModuleConfig {
@@ -63,6 +63,14 @@ export const ALL_MODULES: ModuleDefinition[] = [
     name: '濾鏡 & 色彩',
     description: '影片濾鏡、亮度對比飽和度調整',
     icon: '🎨',
+    defaultEnabled: false,
+    category: 'enhancement',
+  },
+  {
+    id: 'export',
+    name: '進階輸出',
+    description: '多平台預設輸出、GIF 輸出、封面擷取、輸出佇列',
+    icon: '📦',
     defaultEnabled: false,
     category: 'enhancement',
   },

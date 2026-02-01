@@ -14,3 +14,5 @@ export type { WaveformData, BGMItem, AudioFadeSettings, ClipVolumeOverride, Audi
 export { SUPPORTED_AUDIO_EXTENSIONS, DEFAULT_BGM } from './audio';
 export type { TransitionType, TransitionDuration, ClipTransition, TransitionDefinition, FilterAdjustments, FilterPreset, SpeedValue, PiPConfig, PiPRenderConfig, RotationAngle, FlipDirection, CropRegion, TransformConfig, EffectsRenderConfig, TransitionRenderConfig } from './effects';
 export { ALL_TRANSITIONS, TRANSITION_DURATIONS, DEFAULT_FILTER_ADJUSTMENTS, FILTER_PRESETS, SPEED_OPTIONS, DEFAULT_TRANSFORM } from './effects';
+export type { ExportPlatformId, AspectRatioMode, ExportVideoFormat, ExportQualityLevel, GifFps, ExportPlatformPreset, GifExportSettings, ThumbnailFormat, ThumbnailSettings, ExportTaskStatus, ExportTask, PlatformExportConfig, GifExportConfig, ThumbnailExportConfig } from './export';
+export { PLATFORM_PRESETS, DEFAULT_GIF_SETTINGS, GIF_FPS_OPTIONS } from './export';

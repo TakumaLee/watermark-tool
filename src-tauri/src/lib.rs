@@ -46,6 +46,11 @@ pub fn run() {
             // Effects commands
             commands::effects::render_with_effects,
             commands::effects::render_with_transitions,
+            // Export commands
+            commands::export::export_platform_video,
+            commands::export::export_gif,
+            commands::export::extract_thumbnail,
+            commands::export::estimate_gif_file_size,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

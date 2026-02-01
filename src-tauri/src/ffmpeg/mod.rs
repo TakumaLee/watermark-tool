@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod batch;
 pub mod effects;
+pub mod export;
 pub mod overlay;
 pub mod probe;
 pub mod text;

@@ -54,15 +54,15 @@
 - [ ] 畫中畫（PiP）
 - [ ] 裁剪/旋轉/翻轉
 
-## 📦 Phase 10 — 進階輸出 + 發布
+## ✅ Phase 10 — 進階輸出 + 發布
 **目標：一站式從編輯到發布**
 
-- [ ] 多格式輸出預設（YouTube / Instagram / TikTok / Twitter）
-- [ ] 自動調整解析度和比例
-- [ ] GIF 輸出
-- [ ] 影片封面擷取
-- [ ] 直接上傳到平台（YouTube API / 社群分享）
-- [ ] 輸出佇列（排隊多個輸出任務）
+- [x] 多格式輸出預設（YouTube / Instagram / TikTok / Twitter / 自定義）
+- [x] 自動調整解析度和比例（scale+pad / scale+crop）
+- [x] GIF 輸出（兩階段 palette 高品質）
+- [x] 影片封面擷取（JPG / PNG）
+- [ ] 直接上傳到平台（YouTube API / 社群分享）— 延後至未來
+- [x] 輸出佇列（排隊多個輸出任務 + 批次輸出）
 
 ## 🤖 Phase 11 — AI 功能
 **目標：AI 加持，讓剪輯更智能**
