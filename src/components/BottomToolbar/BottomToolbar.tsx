@@ -7,6 +7,7 @@ import { useBatchStore } from '../../stores/batchStore';
 import { useModuleStore } from '../../stores/moduleStore';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useTextStore } from '../../stores/textStore';
+import { useAudioStore } from '../../stores/audioStore';
 import { useTimeline } from '../../hooks/useTimeline';
 import { OutputDialog } from '../dialogs/OutputDialog';
 import { RenderProgress } from '../dialogs/RenderProgress';
@@ -23,6 +24,11 @@ export function BottomToolbar() {
   const isWatermarkEnabled = useModuleStore((s) => s.isEnabled('watermark'));
   const isTextEnabled = useModuleStore((s) => s.isEnabled('text'));
   const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
+  const isAudioEnabled = useModuleStore((s) => s.isEnabled('audio'));
+  const audioHasChanges = useAudioStore((s) =>
+    s.mainVolume !== 100 || s.mainMuted || s.bgmItems.length > 0 ||
+    s.mainFade.fadeInDuration > 0 || s.mainFade.fadeOutDuration > 0
+  );
   const clips = useTimelineStore((s) => s.clips);
   const { exportTimeline, isProcessing: isTimelineProcessing, progress: timelineProgress } = useTimeline();
 

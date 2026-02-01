@@ -10,3 +10,5 @@ export type { TimelineClip, TimelineState, TrimMode } from './timeline';
 export { TIMELINE_ZOOM } from './timeline';
 export type { TextOverlayItem, SubtitleEntry, SubtitleStyle, TextAlign, FontOption, TextRenderConfig, SubtitleRenderConfig } from './text';
 export { BUILT_IN_FONTS, DEFAULT_SUBTITLE_STYLE, DEFAULT_TEXT_OVERLAY } from './text';
+export type { WaveformData, BGMItem, AudioFadeSettings, ClipVolumeOverride, AudioRenderConfig, BGMRenderConfig, ClipVolumeRenderConfig } from './audio';
+export { SUPPORTED_AUDIO_EXTENSIONS, DEFAULT_BGM } from './audio';

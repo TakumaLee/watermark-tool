@@ -6,6 +6,8 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { ModuleSettings } from './components/SettingsPanel';
 import { Timeline } from './components/Timeline';
 import { TextPanel } from './components/TextPanel';
+import { AudioPanel } from './components/AudioPanel';
+import { AudioTimeline } from './components/AudioTimeline';
 import { useModuleStore } from './stores/moduleStore';
 
 function App() {
@@ -35,6 +37,7 @@ function App() {
   const showWatermarkPanel = isEnabled('watermark');
   const showTextPanel = isEnabled('text');
   const showTimeline = isEnabled('trim');
+  const showAudioPanel = isEnabled('audio');
 
   return (
     <div className="flex flex-col h-screen w-screen bg-bg-primary text-text-primary overflow-hidden">
@@ -65,10 +68,14 @@ function App() {
         <VideoPreview videoRef={videoRef} />
         {showWatermarkPanel && <WatermarkPanel />}
         {showTextPanel && <TextPanel />}
+        {showAudioPanel && <AudioPanel />}
       </div>
 
       {/* Timeline (bottom, only when trim module is enabled) */}
       {showTimeline && <Timeline videoRef={videoRef} />}
+
+      {/* Audio timeline (below main timeline, when audio module is enabled) */}
+      {showAudioPanel && <AudioTimeline videoRef={videoRef} />}
 
       {/* Bottom toolbar */}
       <BottomToolbar />

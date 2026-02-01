@@ -39,6 +39,10 @@ pub fn run() {
             commands::timeline::get_timeline_progress,
             // Text commands
             commands::text::render_with_text,
+            // Audio commands
+            commands::audio::extract_audio_waveform,
+            commands::audio::probe_audio_duration,
+            commands::audio::render_with_audio,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
