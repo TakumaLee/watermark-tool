@@ -15,6 +15,7 @@
 | **Phase 8** | 音訊處理 | ✅ 已完成 | 2026-02-03 |
 | **Phase 9** | 進階剪輯功能 | ✅ 已完成 | 2026-02-03 |
 | **Phase 10** | 進階輸出 + 發布 | ✅ 已完成 | 2026-02-03 |
+| **Phase 11** | AI 功能 | ✅ 已完成 | 2026-02-03 |
 
 ---
 
@@ -1135,3 +1136,128 @@ GIF 兩階段：
 - ExportPanel + ExportQueue 在 `isEnabled('export')` 時渲染
 - 輸出佇列自動依序處理，支援多任務排隊
 - 每個任務透過 polling `get_render_progress` 追蹤進度
+
+---
+
+## Phase 11 — AI 功能
+
+**狀態：✅ 已完成**
+**日期：2026-02-03**
+
+### 完成項目
+
+#### AI 自動字幕（Whisper 整合）
+- [x] 呼叫本地 Whisper CLI 進行語音轉文字
+- [x] Rust 端：spawn whisper 進程，解析輸出的 SRT
+- [x] 自動將辨識結果轉為字幕（SubtitleEntry[]）
+- [x] 支援語言選擇（auto/ja/en/zh/ko/fr/de/es）
+- [x] 支援模型選擇（tiny/base/small/medium/large）
+- [x] Whisper 可用性檢測（check_whisper_available）
+- [x] 結果直接載入到 textStore 的字幕列表
+
+#### AI 場景偵測
+- [x] FFmpeg scene detection filter: `select='gt(scene,threshold)',showinfo`
+- [x] 自動在偵測到的場景切換點分割影片（splitAtTime）
+- [x] 場景偵測靈敏度可調（0.1-0.9 滑桿）
+- [x] 偵測結果列表顯示（時間戳 + score）
+
+#### AI 背景移除
+- [x] FFmpeg chromakey filter 整合
+- [x] 色彩選擇器選取要移除的背景色（color picker + hex input）
+- [x] 快速預設（綠/藍/白/黑）
+- [x] 容差（similarity）滑桿調整 0.01-1.0
+- [x] 混合（blend）滑桿調整 0.0-1.0
+- [x] 啟用/停用 toggle
+
+#### AI 畫質提升
+- [x] 銳化 filter（unsharp）— 可調強度 0.1-5.0
+- [x] 降噪 filter（hqdn3d 快速模式 / nlmeans 精確模式）— 可調強度 1-10
+- [x] 超解析度（scale + lanczos）— 1.5x / 2x / 4x
+- [x] 各功能獨立啟用/停用 toggle
+- [x] 重置按鈕
+
+#### AI 自動剪輯建議
+- [x] 靜音偵測（silencedetect filter）
+- [x] 靜音門檻可調（-60 ~ -10 dB）
+- [x] 最短靜音時長可調（0.5 ~ 10s）
+- [x] 建議列表顯示（每段靜音的時間範圍和時長）
+- [x] 單項分割 / 全部分割按鈕
+
+#### 狀態管理
+- [x] aiStore.ts（Zustand）— 完整 AI 功能狀態
+- [x] AIPanel 組件（右側面板，5 分頁切換）
+
+### 技術細節
+
+#### 新增的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/ai.ts` | **新增** — WhisperConfig, SceneDetectConfig, ChromakeyConfig, EnhancementConfig, SilenceDetectConfig 等完整型別 + 預設值 + 常數 |
+| `src/stores/aiStore.ts` | **新增** — AI 功能 Zustand store（Whisper/場景/綠幕/畫質/靜音 五大模組） |
+| `src/components/AIPanel/AIPanel.tsx` | **新增** — AI 面板（5 分頁：字幕/場景/去背/畫質/靜音） |
+| `src/components/AIPanel/index.ts` | **新增** — AIPanel 匯出 |
+
+#### 修改的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/index.ts` | 匯出新 AI 型別 + 常數 |
+| `src/App.tsx` | 新增 AIPanel 條件渲染（ai 模組啟用時） |
+| `src/stores/timelineStore.ts` | 新增 splitAtTime 方法（場景偵測自動分割用） |
+
+#### 新增的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/ai.rs` | **新增** — SRT 解析、場景偵測解析、chromakey filter、enhancement filters、靜音偵測解析（22 tests） |
+| `src-tauri/src/commands/ai.rs` | **新增** — check_whisper_available、whisper_transcribe、detect_scenes、detect_silence、render_with_enhancement commands |
+
+#### 修改的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/mod.rs` | 註冊 ai 模組 |
+| `src-tauri/src/commands/mod.rs` | 註冊 ai 模組 |
+| `src-tauri/src/lib.rs` | 註冊 5 個新 Tauri commands |
+
+#### 前端測試（新增）
+| 檔案 | 測試數 |
+|------|--------|
+| `src/stores/aiStore.test.ts` | **19 tests** — Whisper 設定/狀態/結果/場景偵測/綠幕/畫質增強/靜音偵測/全部清除 |
+
+#### Rust 測試（新增）
+| 範圍 | 測試數 |
+|------|--------|
+| SRT 解析 | 5 tests（基本/多行/無尾行/時間解析/空輸入） |
+| 場景偵測 | 2 tests（解析 showinfo/建構 args） |
+| Chromakey | 2 tests（綠幕/藍幕） |
+| Enhancement | 6 tests（銳化/nlmeans/hqdn3d/超解析度/組合/空） |
+| 靜音偵測 | 3 tests（建構 args/解析輸出/空輸入） |
+| 序列化 | 4 tests（WhisperConfig/ChromakeyConfig/EnhancementConfig/SilenceSegment） |
+
+#### 測試結果
+- Rust 測試：**126 tests passed**（104 existing + 22 新增 AI 模組測試）
+- 前端測試：**142 tests passed**（123 existing + 19 新增 aiStore 測試）
+- TypeScript 編譯：零錯誤
+
+#### FFmpeg 命令架構
+```
+場景偵測：
+  ffmpeg -i input.mp4 -vf "select='gt(scene,0.3)',showinfo" -f null -
+
+靜音偵測：
+  ffmpeg -i input.mp4 -af "silencedetect=noise=-30dB:d=2" -f null -
+
+綠幕移除：
+  -vf "chromakey=color=0x00ff00:similarity=0.30:blend=0.10"
+
+畫質增強（組合）：
+  -vf "unsharp=5:5:1.0:5:5:1.0,hqdn3d=3.0:3.0:6.0:6.0,scale=iw*2.0:ih*2.0:flags=lanczos"
+
+Whisper 語音辨識：
+  ffmpeg -y -i input.mp4 -vn -acodec pcm_s16le -ar 16000 -ac 1 temp.wav
+  whisper --model base --language auto --output_format srt --output_dir /tmp/ temp.wav
+```
+
+#### 模組系統整合
+- `ai` 模組（`ModuleId = 'ai'`）控制 AIPanel 的顯示/隱藏
+- AIPanel 在 `isEnabled('ai')` 時渲染
+- 5 個分頁：字幕（Whisper）、場景偵測、背景移除、畫質提升、靜音偵測
+- Whisper 依賴檢測：啟動時自動檢查 whisper CLI 是否可用
