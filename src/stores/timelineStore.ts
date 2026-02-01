@@ -25,6 +25,8 @@ interface TimelineStoreState {
   selectClip: (clipId: string | null) => void;
   /** Split clip at the current playhead position */
   splitAtPlayhead: () => void;
+  /** Split at a specific time (in source timeline) */
+  splitAtTime: (time: number) => void;
   /** Trim a clip to new in/out points */
   trimClip: (clipId: string, newStart: number, newEnd: number) => void;
   /** Delete a clip */
@@ -138,6 +140,48 @@ export const useTimelineStore = create<TimelineStoreState>((set, get) => ({
     newClips.splice(targetClipIndex, 1, clip1, clip2);
     set({ clips: newClips });
     get()._recomputeDuration();
+  },
+
+  splitAtTime: (time: number) => {
+    const { clips } = get();
+    if (clips.length === 0) return;
+
+    // Find the clip that contains this source time
+    for (let i = 0; i < clips.length; i++) {
+      const clip = clips[i];
+      if (time > clip.startTime && time < clip.endTime) {
+        const minDuration = 0.1;
+        if (time - clip.startTime < minDuration || clip.endTime - time < minDuration) {
+          return;
+        }
+
+        const clip1: TimelineClip = {
+          id: generateClipId(),
+          sourcePath: clip.sourcePath,
+          sourceUrl: clip.sourceUrl,
+          startTime: clip.startTime,
+          endTime: time,
+          duration: time - clip.startTime,
+          name: `${clip.name} (1)`,
+        };
+
+        const clip2: TimelineClip = {
+          id: generateClipId(),
+          sourcePath: clip.sourcePath,
+          sourceUrl: clip.sourceUrl,
+          startTime: time,
+          endTime: clip.endTime,
+          duration: clip.endTime - time,
+          name: `${clip.name} (2)`,
+        };
+
+        const newClips = [...clips];
+        newClips.splice(i, 1, clip1, clip2);
+        set({ clips: newClips });
+        get()._recomputeDuration();
+        return;
+      }
+    }
   },
 
   trimClip: (clipId, newStart, newEnd) => {

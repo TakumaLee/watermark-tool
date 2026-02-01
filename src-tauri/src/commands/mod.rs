@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod audio;
 pub mod effects;
 pub mod export;

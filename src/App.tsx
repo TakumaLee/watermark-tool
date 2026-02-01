@@ -12,6 +12,7 @@ import { EffectsPanel } from './components/EffectsPanel';
 import { FilterPanel } from './components/FilterPanel';
 import { ExportPanel } from './components/ExportPanel';
 import { ExportQueue } from './components/ExportQueue';
+import { AIPanel } from './components/AIPanel';
 import { useModuleStore } from './stores/moduleStore';
 
 function App() {
@@ -44,6 +45,7 @@ function App() {
   const showAudioPanel = isEnabled('audio');
   const showFiltersPanel = isEnabled('filters');
   const showExportPanel = isEnabled('export');
+  const showAIPanel = isEnabled('ai');
 
   return (
     <div className="flex flex-col h-screen w-screen bg-bg-primary text-text-primary overflow-hidden">
@@ -79,6 +81,7 @@ function App() {
         {showFiltersPanel && <EffectsPanel />}
         {showExportPanel && <ExportPanel />}
         {showExportPanel && <ExportQueue />}
+        {showAIPanel && <AIPanel />}
       </div>
 
       {/* Timeline (bottom, only when trim module is enabled) */}

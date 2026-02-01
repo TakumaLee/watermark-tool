@@ -16,3 +16,5 @@ export type { TransitionType, TransitionDuration, ClipTransition, TransitionDefi
 export { ALL_TRANSITIONS, TRANSITION_DURATIONS, DEFAULT_FILTER_ADJUSTMENTS, FILTER_PRESETS, SPEED_OPTIONS, DEFAULT_TRANSFORM } from './effects';
 export type { ExportPlatformId, AspectRatioMode, ExportVideoFormat, ExportQualityLevel, GifFps, ExportPlatformPreset, GifExportSettings, ThumbnailFormat, ThumbnailSettings, ExportTaskStatus, ExportTask, PlatformExportConfig, GifExportConfig, ThumbnailExportConfig } from './export';
 export { PLATFORM_PRESETS, DEFAULT_GIF_SETTINGS, GIF_FPS_OPTIONS } from './export';
+export type { WhisperLanguage, WhisperModel, AITaskStatus, WhisperConfig, WhisperState, WhisperResultEntry, SceneDetectConfig, SceneDetectState, SceneChangePoint, ChromakeyConfig, ChromakeyState, EnhancementFilter, EnhancementConfig, EnhancementState, SilenceDetectConfig, SilenceSegment, SilenceDetectState, EditSuggestion } from './ai';
+export { DEFAULT_WHISPER_CONFIG, DEFAULT_SCENE_DETECT_CONFIG, DEFAULT_CHROMAKEY_CONFIG, DEFAULT_ENHANCEMENT_CONFIG, DEFAULT_SILENCE_DETECT_CONFIG, WHISPER_LANGUAGES, WHISPER_MODELS } from './ai';

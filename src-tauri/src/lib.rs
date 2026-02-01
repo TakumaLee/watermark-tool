@@ -51,6 +51,12 @@ pub fn run() {
             commands::export::export_gif,
             commands::export::extract_thumbnail,
             commands::export::estimate_gif_file_size,
+            // AI commands
+            commands::ai::check_whisper_available,
+            commands::ai::whisper_transcribe,
+            commands::ai::detect_scenes,
+            commands::ai::detect_silence,
+            commands::ai::render_with_enhancement,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
