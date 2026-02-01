@@ -12,6 +12,7 @@
 | **Phase 5** | 跨平台打包 + 測試 | ✅ 已完成 | 2026-02-02 |
 | **Phase 6** | 模組化系統 + 基礎剪輯功能 | ✅ 已完成 | 2026-02-02 |
 | **Phase 7** | 文字疊加 + 字幕 | ✅ 已完成 | 2026-02-02 |
+| **Phase 8** | 音訊處理 | ✅ 已完成 | 2026-02-03 |
 
 ---
 
@@ -671,4 +672,152 @@ Timeline 組件
     → parseSrt() 解析為 SubtitleEntry[]
     → setSubtitles(entries, filePath)
     → SubtitleDisplay 根據 currentTime 即時顯示
+```
+
+---
+
+## Phase 8 — 音訊處理
+
+**狀態：✅ 已完成**
+**日期：2026-02-03**
+
+### 完成項目
+
+#### 音訊波形顯示
+- [x] 用 FFmpeg 提取音訊 PCM 數據（Rust 端 `extract_waveform`：mono 8kHz s16le → 降採樣 peaks 數組）
+- [x] 前端用 Canvas 繪製波形（WaveformCanvas 組件，支援 DPR 高解析度）
+- [x] 波形顯示在時間軸區域下方（AudioTimeline 組件）
+- [x] 波形隨時間軸縮放同步（共用 timelineStore 的 zoom/scrollOffset）
+
+#### 音量控制
+- [x] 主音量滑桿（0-200%）
+- [x] 靜音/取消靜音按鈕
+- [x] 片段級音量調整（每個時間軸片段可獨立調音量）
+- [x] 即時預覽音量變化
+
+#### BGM 添加
+- [x] BGM 音檔匯入（mp3, wav, aac, ogg, flac, m4a）
+- [x] BGM 在時間軸上顯示為獨立軌道
+- [x] BGM 音量獨立控制
+- [x] BGM 起始時間偏移（拖動調整 BGM 開始位置）
+- [x] BGM 裁切（只使用部分 BGM）
+
+#### 音訊淡入淡出
+- [x] 淡入效果（fadein duration 設定）
+- [x] 淡出效果（fadeout duration 設定）
+- [x] 對主音訊和 BGM 分別設定
+- [x] 設定即時反映到輸出
+
+#### FFmpeg 整合
+- [x] 音量調整：`-af "volume=X"`
+- [x] BGM 混音：`-filter_complex "amix=inputs=2:duration=first"`
+- [x] 淡入淡出：`-af "afade=t=in:d=X, afade=t=out:st=Y:d=Z"`
+- [x] 靜音片段：`-af "volume=enable='between(t,START,END)':volume=0"`
+- [x] 音訊分離提取：`-vn -acodec pcm_s16le`
+- [x] BGM 裁切：`atrim=start=X:end=Y,asetpts=PTS-STARTPTS`
+- [x] BGM 延遲：`adelay=Xms|Xms`
+- [x] 與浮水印/文字/字幕 filter_complex 正確整合
+
+#### 狀態管理
+- [x] audioStore.ts（Zustand）— 主音量、BGM 列表、淡入淡出設定、片段音量
+- [x] AudioPanel 組件（右側面板，audio 模組啟用時顯示）
+- [x] AudioTimeline 組件（波形 + BGM 軌道在時間軸下方）
+
+### 技術細節
+
+#### 新增的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/audio.ts` | **新增** — WaveformData, BGMItem, AudioFadeSettings, AudioRenderConfig 等型別 |
+| `src/stores/audioStore.ts` | **新增** — 音訊狀態 Zustand store（音量/靜音/BGM/淡入淡出/片段音量） |
+| `src/components/AudioTimeline/WaveformCanvas.tsx` | **新增** — Canvas 波形繪製（DPR 感知、對稱柱狀圖） |
+| `src/components/AudioTimeline/AudioTimeline.tsx` | **新增** — 音訊時間軸（主波形 + BGM 軌道，可拖動 BGM 偏移） |
+| `src/components/AudioPanel/AudioPanel.tsx` | **新增** — 音訊右側面板（波形提取/音量/淡入淡出/BGM 匯入） |
+| `src/components/AudioPanel/BGMCard.tsx` | **新增** — BGM 卡片（可展開設定：音量/偏移/裁切/淡入淡出） |
+
+#### 修改的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/index.ts` | 匯出新型別 |
+| `src/App.tsx` | 新增 AudioPanel 和 AudioTimeline 條件渲染 |
+| `src/components/BottomToolbar/BottomToolbar.tsx` | 新增 audio 模組感知 |
+
+#### 新增的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/audio.rs` | **新增** — 音訊處理：波形提取、音頻 filter 組裝（volume/fade/bgm mix/trim/delay）（13 tests） |
+| `src-tauri/src/commands/audio.rs` | **新增** — extract_audio_waveform、probe_audio_duration、render_with_audio commands |
+
+#### 修改的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/mod.rs` | 註冊 audio 模組 |
+| `src-tauri/src/commands/mod.rs` | 註冊 audio 模組 |
+| `src-tauri/src/lib.rs` | 註冊 3 個新 Tauri commands |
+
+#### 前端測試（新增）
+| 檔案 | 測試數 |
+|------|--------|
+| `src/stores/audioStore.test.ts` | **15 tests** — 音量/靜音/淡入淡出/波形/BGM CRUD/片段音量/清除 |
+
+#### Rust 測試（新增）
+| 範圍 | 測試數 |
+|------|--------|
+| 主音量 filter 組裝 | 4 tests（預設/音量調整/靜音/淡入淡出） |
+| 片段音量覆蓋 | 2 tests（靜音片段/自訂音量） |
+| 全靜音處理 | 1 test |
+| 簡單音頻 filter | 1 test |
+| BGM 混音 filter | 1 test |
+| BGM 靜音忽略 | 1 test |
+| BGM 裁切 | 1 test |
+| 序列化 | 1 test |
+| ffprobe 錯誤 | 1 test |
+
+#### 測試結果
+- Rust 測試：**59 tests passed**（46 existing + 13 新增 audio 模組測試）
+- 前端測試：**70 tests passed**（55 existing + 15 新增 audioStore 測試）
+- TypeScript 編譯：零錯誤
+
+#### FFmpeg 命令架構
+```
+無 BGM 時（簡單 -af）：
+  ffmpeg -i input.mp4 -af "volume=1.50,afade=t=in:d=2.000,afade=t=out:st=57.000:d=3.000" output.mp4
+
+有 BGM 時（filter_complex）：
+  ffmpeg -i input.mp4 -i bgm.mp3 \
+    -filter_complex "[0:a]volume=1.50[amain]; \
+                     [1:a]volume=0.50,afade=t=in:d=2.000,adelay=5000|5000[bgm0]; \
+                     [amain][bgm0]amix=inputs=2:duration=first:dropout_transition=2[aout]" \
+    -map 0:v -map [aout] -c:v libx264 -c:a aac -b:a 192k output.mp4
+
+與浮水印+文字+字幕整合時：
+  ffmpeg -i input.mp4 -i bgm.mp3 -i wm.png \
+    -filter_complex "[2]scale...→[wm0];[0:v][wm0]overlay→[wmout]; \
+                     [wmout]drawtext=...,subtitles=...[vout]; \
+                     [0:a]volume=1.50[amain]; \
+                     [1:a]volume=0.50[bgm0]; \
+                     [amain][bgm0]amix=inputs=2:duration=first[aout]" \
+    -map [vout] -map [aout] output.mp4
+```
+
+#### 波形提取流程
+```
+用戶點擊「提取波形」
+    → invoke extract_audio_waveform(path, numPeaks=800)
+    → Rust: ffmpeg -i input -vn -ac 1 -ar 8000 -f s16le pipe:1
+    → 讀取 PCM bytes → 每 N 個 sample 取 max abs → 正規化 peaks[]
+    → 回傳 WaveformPeaks { peaks, sample_rate, duration }
+    → 前端 audioStore.setMainWaveform()
+    → WaveformCanvas 用 Canvas 2D 繪製對稱柱狀圖
+```
+
+#### BGM 匯入流程
+```
+用戶點擊「+ 匯入 BGM」
+    → Tauri dialog 選檔（mp3/wav/aac/ogg/flac/m4a）
+    → invoke probe_audio_duration 取得時長
+    → 建立 BGMItem → audioStore.addBgm()
+    → 背景 invoke extract_audio_waveform 取得波形
+    → audioStore.setBgmWaveform()
+    → AudioTimeline 顯示 BGM 軌道（可拖動調整 startOffset）
 ```
