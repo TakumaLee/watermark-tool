@@ -8,7 +8,9 @@ import { useModuleStore } from '../../stores/moduleStore';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useTextStore } from '../../stores/textStore';
 import { useAudioStore } from '../../stores/audioStore';
+import { useEffectsStore } from '../../stores/effectsStore';
 import { useTimeline } from '../../hooks/useTimeline';
+import { useEffectsRender } from '../../hooks/useEffectsRender';
 import { OutputDialog } from '../dialogs/OutputDialog';
 import { RenderProgress } from '../dialogs/RenderProgress';
 import { PresetDialog } from '../dialogs/PresetDialog';
@@ -25,12 +27,19 @@ export function BottomToolbar() {
   const isTextEnabled = useModuleStore((s) => s.isEnabled('text'));
   const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
   const isAudioEnabled = useModuleStore((s) => s.isEnabled('audio'));
+  const isFiltersEnabled = useModuleStore((s) => s.isEnabled('filters'));
   const audioHasChanges = useAudioStore((s) =>
     s.mainVolume !== 100 || s.mainMuted || s.bgmItems.length > 0 ||
     s.mainFade.fadeInDuration > 0 || s.mainFade.fadeOutDuration > 0
   );
+  const effectsHasChanges = useEffectsStore((s) =>
+    s.filters.brightness !== 0 || s.filters.contrast !== 1.0 || s.filters.saturation !== 1.0 ||
+    s.speed !== 1 || s.reverse || s.pipLayers.length > 0 ||
+    s.transform.rotation !== 0 || s.transform.flip !== 'none' || s.transform.crop !== null
+  );
   const clips = useTimelineStore((s) => s.clips);
   const { exportTimeline, isProcessing: isTimelineProcessing, progress: timelineProgress } = useTimeline();
+  const { exportWithEffects, isProcessing: isEffectsProcessing, progress: effectsProgress } = useEffectsRender();
 
   const [showOutputDialog, setShowOutputDialog] = useState(false);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
@@ -47,6 +56,16 @@ export function BottomToolbar() {
     <>
       {/* Render progress bar (shows above toolbar when rendering) */}
       <RenderProgress />
+
+      {/* Effects export progress */}
+      {isEffectsProcessing && (
+        <div className="h-1 flex-shrink-0 bg-bg-primary">
+          <div
+            className="h-full bg-green-500 transition-[width] duration-150"
+            style={{ width: `${effectsProgress * 100}%` }}
+          />
+        </div>
+      )}
 
       {/* Timeline export progress */}
       {isTimelineProcessing && (
@@ -110,6 +129,20 @@ export function BottomToolbar() {
 
         {/* Right primary actions */}
         <div className="flex items-center gap-2">
+          {/* Effects export button (only when filters module is enabled) */}
+          {isFiltersEnabled && (
+            <button
+              onClick={exportWithEffects}
+              className="px-5 py-1.5 border border-green-500/50 hover:bg-green-500/10 text-green-400 rounded-lg text-sm font-medium
+                         transition-colors duration-150
+                         disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={!hasVideo || isEffectsProcessing}
+              title={!hasVideo ? '請先匯入影片' : isEffectsProcessing ? '正在輸出...' : '輸出含效果影片'}
+            >
+              {isEffectsProcessing ? `⚡ 輸出中 ${Math.round(effectsProgress * 100)}%` : '⚡ 效果輸出'}
+            </button>
+          )}
+
           {/* Timeline export button (only when trim module is enabled) */}
           {isTrimEnabled && (
             <button

@@ -12,3 +12,5 @@ export type { TextOverlayItem, SubtitleEntry, SubtitleStyle, TextAlign, FontOpti
 export { BUILT_IN_FONTS, DEFAULT_SUBTITLE_STYLE, DEFAULT_TEXT_OVERLAY } from './text';
 export type { WaveformData, BGMItem, AudioFadeSettings, ClipVolumeOverride, AudioRenderConfig, BGMRenderConfig, ClipVolumeRenderConfig } from './audio';
 export { SUPPORTED_AUDIO_EXTENSIONS, DEFAULT_BGM } from './audio';
+export type { TransitionType, TransitionDuration, ClipTransition, TransitionDefinition, FilterAdjustments, FilterPreset, SpeedValue, PiPConfig, PiPRenderConfig, RotationAngle, FlipDirection, CropRegion, TransformConfig, EffectsRenderConfig, TransitionRenderConfig } from './effects';
+export { ALL_TRANSITIONS, TRANSITION_DURATIONS, DEFAULT_FILTER_ADJUSTMENTS, FILTER_PRESETS, SPEED_OPTIONS, DEFAULT_TRANSFORM } from './effects';

@@ -13,6 +13,7 @@
 | **Phase 6** | 模組化系統 + 基礎剪輯功能 | ✅ 已完成 | 2026-02-02 |
 | **Phase 7** | 文字疊加 + 字幕 | ✅ 已完成 | 2026-02-02 |
 | **Phase 8** | 音訊處理 | ✅ 已完成 | 2026-02-03 |
+| **Phase 9** | 進階剪輯功能 | ✅ 已完成 | 2026-02-03 |
 
 ---
 
@@ -821,3 +822,164 @@ Timeline 組件
     → audioStore.setBgmWaveform()
     → AudioTimeline 顯示 BGM 軌道（可拖動調整 startOffset）
 ```
+
+---
+
+## Phase 9 — 進階剪輯功能
+
+**狀態：✅ 已完成**
+**日期：2026-02-03**
+
+### 完成項目
+
+#### 轉場效果
+- [x] 片段間轉場 UI — TransitionIcon 組件（圓形按鈕，出現在時間軸相鄰片段之間）
+- [x] 轉場類型選擇器（下拉式：淡入淡出/左滑/右滑/縮放/溶解，對應 FFmpeg xfade filter）
+- [x] 轉場時長設定（0.5s / 1s / 1.5s / 2s）
+- [x] FFmpeg xfade filter 組裝（build_transition_filter + build_audio_transition_filter）
+- [x] 音訊 acrossfade 同步
+
+#### 影片濾鏡（filters 模組）
+- [x] FilterPanel 組件 — 獨立右側面板
+- [x] 基礎調整（亮度 -1~1 / 對比 0~3 / 飽和度 0~3）滑桿
+- [x] CSS filter 即時預覽（brightness/contrast/saturate 套用在 <video> 元素）
+- [x] FFmpeg eq filter（build_eq_filter）
+- [x] 8 種預設模板：無濾鏡、暖色調、冷色調、黑白、復古、電影感、鮮豔、柔和
+- [x] 預設一鍵套用 + 手動微調
+
+#### 速度調整
+- [x] 0.25x / 0.5x / 1x / 1.5x / 2x / 4x 按鈕選擇
+- [x] 倒放 (Reverse) 勾選框
+- [x] playbackRate 即時預覽
+- [x] FFmpeg setpts filter（build_speed_video_filter）
+- [x] FFmpeg atempo filter chain（build_speed_audio_filter，自動串接 0.5~100 範圍）
+- [x] reverse / areverse filter
+
+#### 畫中畫（PiP）
+- [x] PiP 影片匯入（Tauri dialog，mp4/mov/avi/mkv/webm）
+- [x] PiPOverlay 組件 — 拖放定位（比例座標 0~1）
+- [x] PiP 大小滑桿（鎖定寬高比）
+- [x] 時間範圍設定（startTime / endTime）
+- [x] 時間可見性控制（超出範圍自動隱藏）
+- [x] FFmpeg overlay filter + scale + enable='between(...)'
+- [x] 多 PiP 層支援
+- [x] EffectsPanel 面板管理 PiP 列表（新增/刪除/選取）
+
+#### 裁剪/旋轉/翻轉
+- [x] CropOverlay 組件 — 視覺裁剪框（暗化非裁剪區域 + 虛線邊框）
+- [x] 四角 resize handles 拖動裁剪
+- [x] 裁剪區域拖動定位
+- [x] 裁剪尺寸即時顯示（像素值）
+- [x] 旋轉 0°/90°/180°/270° 按鈕
+- [x] 翻轉：無/水平/垂直/雙向 按鈕
+- [x] CSS transform 即時預覽（rotate + scaleX/Y）
+- [x] FFmpeg crop/transpose/hflip/vflip filter（build_transform_filters）
+
+#### 整合與輸出
+- [x] render_with_effects 統一渲染命令（watermarks + texts + subtitles + audio + effects）
+- [x] render_with_transitions 轉場渲染命令
+- [x] useEffectsRender hook — 效果輸出流程 + 進度監控
+- [x] BottomToolbar「⚡ 效果輸出」按鈕 + 進度條
+
+### 技術細節
+
+#### 新增的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/effects.ts` | **新增** — TransitionType, FilterAdjustments, SpeedValue, PiPConfig, TransformConfig, EffectsRenderConfig 等完整型別 |
+| `src/stores/effectsStore.ts` | **新增** — 效果 Zustand store（transitions Map/filters/speed/pip/transform） |
+| `src/hooks/useEffectsRender.ts` | **新增** — 效果輸出 hook（invoke render_with_effects + 進度 polling） |
+| `src/components/EffectsPanel/EffectsPanel.tsx` | **新增** — 進階效果面板（速度/裁剪旋轉翻轉/PiP 管理） |
+| `src/components/FilterPanel/FilterPanel.tsx` | **新增** — 濾鏡面板（預設模板 + 手動調整） |
+| `src/components/PiPOverlay/PiPOverlay.tsx` | **新增** — PiP 預覽疊加層（拖放定位 + 時間可見性） |
+| `src/components/CropOverlay/CropOverlay.tsx` | **新增** — 裁剪疊加層（暗化 + 四角 resize） |
+| `src/components/Timeline/TransitionIcon.tsx` | **新增** — 轉場效果選擇圖示（片段間圓形按鈕 + 下拉選擇器） |
+
+#### 修改的前端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src/types/index.ts` | 匯出新型別 |
+| `src/App.tsx` | 新增 FilterPanel、EffectsPanel 條件渲染（filters 模組） |
+| `src/components/VideoPreview/VideoPlayer.tsx` | CSS filter 預覽、CSS transform 預覽、playbackRate 同步、PiPOverlay + CropOverlay 條件渲染 |
+| `src/components/Timeline/Timeline.tsx` | 新增 TransitionIcon 在片段之間渲染（filters 模組啟用時） |
+| `src/components/BottomToolbar/BottomToolbar.tsx` | 新增「⚡ 效果輸出」按鈕 + 進度條 |
+
+#### 新增的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/effects.rs` | **新增** — 效果 filter 組裝（eq/speed/pip/transform/transition/xfade）（29 tests） |
+| `src-tauri/src/commands/effects.rs` | **新增** — render_with_effects + render_with_transitions commands |
+
+#### 修改的 Rust 後端檔案
+| 檔案 | 說明 |
+|------|------|
+| `src-tauri/src/ffmpeg/mod.rs` | 註冊 effects 模組 |
+| `src-tauri/src/commands/mod.rs` | 註冊 effects 模組 |
+| `src-tauri/src/lib.rs` | 註冊 render_with_effects、render_with_transitions commands |
+
+#### 前端測試（新增）
+| 檔案 | 測試數 |
+|------|--------|
+| `src/stores/effectsStore.test.ts` | **25 tests** — transitions CRUD/filters 調整重置/speed/reverse/PiP CRUD/transform 設定重置/clearAll |
+
+#### Rust 測試（新增）
+| 範圍 | 測試數 |
+|------|--------|
+| eq filter | 2 tests（預設/自訂） |
+| speed video filter | 3 tests（normal/fast/slow） |
+| speed audio filter | 3 tests（normal/2x/0.25x chaining） |
+| transform filters | 8 tests（無變更/rotate 90/180/270/hflip/vflip/both/crop/crop+rotate） |
+| PiP filter | 2 tests（空/單個） |
+| transition filter | 2 tests（單個/無） |
+| effects combined | 2 tests（video/audio） |
+| audio transition | 1 test |
+| serialization | 3 tests（FilterConfig/PiPRenderConfig/TransformConfig） |
+| reverse | 2 tests（audio/speed+reverse） |
+
+#### 測試結果
+- Rust 測試：**88 tests passed**（59 existing + 29 新增 effects 模組測試）
+- 前端測試：**95 tests passed**（70 existing + 25 新增 effectsStore 測試）
+- TypeScript 編譯：零錯誤
+
+#### FFmpeg 命令架構
+
+```
+基礎效果（無 PiP、無轉場）：
+  ffmpeg -i input.mp4 \
+    -vf "hflip,eq=brightness=0.1:contrast=1.2:saturation=1.3,setpts=PTS/2.000" \
+    -af "atempo=2.000" \
+    -c:v libx264 output.mp4
+
+含 PiP：
+  ffmpeg -i input.mp4 -i pip.mp4 \
+    -filter_complex "[1:v]scale=480:270[pip0]; \
+                     [0:v]eq=...[pre_effects]; \
+                     [pre_effects][pip0]overlay=1344:756:enable='between(t,0,10)'[vout]" \
+    -map [vout] -map 0:a output.mp4
+
+轉場渲染（多 clip）：
+  ffmpeg -i clip1.mp4 -i clip2.mp4 -i clip3.mp4 \
+    -filter_complex "[0:v][1:v]xfade=transition=fade:duration=1.000:offset=9.000[xfade0]; \
+                     [xfade0][2:v]xfade=transition=dissolve:duration=1.500:offset=17.500[vxfade]; \
+                     [0:a][1:a]acrossfade=d=1.000:c1=tri:c2=tri[axfade0]; \
+                     [axfade0][2:a]acrossfade=d=1.500:c1=tri:c2=tri[axfade]" \
+    -map [vxfade] -map [axfade] output.mp4
+
+全功能整合（watermarks + text + subtitles + audio + effects）：
+  ffmpeg -i input.mp4 -i bgm.mp3 -i pip.mp4 -i wm.png \
+    -filter_complex "[3]scale...→[wm0];[0:v][wm0]overlay→[pre_effects]; \
+                     [pre_effects]crop=...,transpose=1,eq=...,drawtext=...,subtitles=...[pip_base]; \
+                     [2:v]scale=480:270[pip0]; \
+                     [pip_base][pip0]overlay=...enable='between(t,...)'[vout]; \
+                     [0:a]volume=1.50[amain]; \
+                     [1:a]volume=0.50[bgm0]; \
+                     [amain][bgm0]amix=inputs=2:duration=first[aout]" \
+    -map [vout] -map [aout] output.mp4
+```
+
+#### 模組系統整合
+- `filters` 模組（`ModuleId = 'filters'`）控制所有 Phase 9 面板的顯示/隱藏
+- FilterPanel + EffectsPanel 在 `isEnabled('filters')` 時渲染
+- PiPOverlay、CropOverlay 在 VideoPlayer 中條件渲染
+- TransitionIcon 在 Timeline 中條件渲染
+- CSS filter/transform 預覽僅在 filters 模組啟用時生效

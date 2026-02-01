@@ -1,9 +1,11 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useVideoStore } from '../../stores/videoStore';
+import { useModuleStore } from '../../stores/moduleStore';
 import { formatTime } from '../../utils/formatTime';
 import { TimelineClipItem } from './TimelineClipItem';
 import { TimelineRuler } from './TimelineRuler';
+import { TransitionIcon } from './TransitionIcon';
 import { TIMELINE_ZOOM } from '../../types';
 
 interface TimelineProps {
@@ -29,6 +31,8 @@ export function Timeline({ videoRef }: TimelineProps) {
   } = useTimelineStore();
 
   const { videoInfo } = useVideoStore();
+  const isFiltersEnabled = useModuleStore((s) => s.isEnabled('filters'));
+  const sortedClips = clips; // clips are already in order
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
@@ -258,6 +262,18 @@ export function Timeline({ videoRef }: TimelineProps) {
                     onSelect={() => selectClip(clip.id)}
                     onDragEnd={handleDragEnd}
                   />
+                  {/* Transition icon between clips */}
+                  {isFiltersEnabled && index < clips.length - 1 && (
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 z-30"
+                      style={{ right: -12 }}
+                    >
+                      <TransitionIcon
+                        fromClipId={clip.id}
+                        toClipId={clips[index + 1].id}
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}

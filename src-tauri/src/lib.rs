@@ -43,6 +43,9 @@ pub fn run() {
             commands::audio::extract_audio_waveform,
             commands::audio::probe_audio_duration,
             commands::audio::render_with_audio,
+            // Effects commands
+            commands::effects::render_with_effects,
+            commands::effects::render_with_transitions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

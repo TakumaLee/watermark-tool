@@ -3,10 +3,13 @@ import { useVideoStore } from '../../stores/videoStore';
 import { useWatermarkStore } from '../../stores/watermarkStore';
 import { useModuleStore } from '../../stores/moduleStore';
 import { useTimelineStore } from '../../stores/timelineStore';
+import { useEffectsStore } from '../../stores/effectsStore';
 import { formatTime } from '../../utils/formatTime';
 import { getAspectRatioLabel } from '../../utils/aspectRatio';
 import { WatermarkOverlay } from '../WatermarkOverlay';
 import { TextOverlay } from '../TextOverlay';
+import { PiPOverlay } from '../PiPOverlay';
+import { CropOverlay } from '../CropOverlay';
 
 interface VideoPlayerProps {
   videoRef?: React.RefObject<HTMLVideoElement | null>;
@@ -21,6 +24,13 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
   const isWatermarkEnabled = useModuleStore((s) => s.isEnabled('watermark'));
   const isTextEnabled = useModuleStore((s) => s.isEnabled('text'));
   const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
+  const isFiltersEnabled = useModuleStore((s) => s.isEnabled('filters'));
+
+  // Effects store for CSS filter preview + speed
+  const filters = useEffectsStore((s) => s.filters);
+  const speed = useEffectsStore((s) => s.speed);
+  const transform = useEffectsStore((s) => s.transform);
+  const pipLayers = useEffectsStore((s) => s.pipLayers);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -148,6 +158,33 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
     [handleProgressClick, videoRef],
   );
 
+  // CSS filter preview for video element
+  const cssFilterStyle = isFiltersEnabled
+    ? `brightness(${1 + filters.brightness}) contrast(${filters.contrast}) saturate(${filters.saturation})`
+    : undefined;
+
+  // CSS transform preview for rotation/flip
+  const cssTransformParts: string[] = [];
+  if (transform.rotation !== 0) {
+    cssTransformParts.push(`rotate(${transform.rotation}deg)`);
+  }
+  if (transform.flip === 'horizontal' || transform.flip === 'both') {
+    cssTransformParts.push('scaleX(-1)');
+  }
+  if (transform.flip === 'vertical' || transform.flip === 'both') {
+    cssTransformParts.push('scaleY(-1)');
+  }
+  const cssTransformStyle = isFiltersEnabled && cssTransformParts.length > 0
+    ? cssTransformParts.join(' ')
+    : undefined;
+
+  // Sync playbackRate when speed changes
+  useEffect(() => {
+    if (videoRef.current && isFiltersEnabled) {
+      videoRef.current.playbackRate = speed;
+    }
+  }, [speed, isFiltersEnabled, videoRef]);
+
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
   const aspectLabel = videoInfo ? getAspectRatioLabel(videoInfo.width, videoInfo.height) : '';
 
@@ -162,6 +199,10 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
           ref={videoRef}
           src={videoUrl ?? undefined}
           className="max-w-full max-h-full object-contain"
+          style={{
+            filter: cssFilterStyle,
+            transform: cssTransformStyle,
+          }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onTimeUpdate={() => {
@@ -192,6 +233,27 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
           <TextOverlay
             videoElement={videoElement}
             containerElement={containerElement}
+          />
+        )}
+
+        {/* PiP overlay (only if filters module is enabled and PiP layers exist) */}
+        {isFiltersEnabled && pipLayers.length > 0 && videoInfo && containerElement && (
+          <PiPOverlay
+            containerWidth={containerElement.clientWidth}
+            containerHeight={containerElement.clientHeight}
+            videoWidth={videoInfo.width}
+            videoHeight={videoInfo.height}
+            currentTime={currentTime}
+          />
+        )}
+
+        {/* Crop overlay (only if filters module is enabled and crop is active) */}
+        {isFiltersEnabled && transform.crop && videoInfo && containerElement && (
+          <CropOverlay
+            containerWidth={containerElement.clientWidth}
+            containerHeight={containerElement.clientHeight}
+            videoWidth={videoInfo.width}
+            videoHeight={videoInfo.height}
           />
         )}
       </div>

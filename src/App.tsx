@@ -8,6 +8,8 @@ import { Timeline } from './components/Timeline';
 import { TextPanel } from './components/TextPanel';
 import { AudioPanel } from './components/AudioPanel';
 import { AudioTimeline } from './components/AudioTimeline';
+import { EffectsPanel } from './components/EffectsPanel';
+import { FilterPanel } from './components/FilterPanel';
 import { useModuleStore } from './stores/moduleStore';
 
 function App() {
@@ -38,6 +40,7 @@ function App() {
   const showTextPanel = isEnabled('text');
   const showTimeline = isEnabled('trim');
   const showAudioPanel = isEnabled('audio');
+  const showFiltersPanel = isEnabled('filters');
 
   return (
     <div className="flex flex-col h-screen w-screen bg-bg-primary text-text-primary overflow-hidden">
@@ -69,6 +72,8 @@ function App() {
         {showWatermarkPanel && <WatermarkPanel />}
         {showTextPanel && <TextPanel />}
         {showAudioPanel && <AudioPanel />}
+        {showFiltersPanel && <FilterPanel />}
+        {showFiltersPanel && <EffectsPanel />}
       </div>
 
       {/* Timeline (bottom, only when trim module is enabled) */}
