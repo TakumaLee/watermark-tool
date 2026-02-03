@@ -9,7 +9,7 @@ interface AudioTimelineProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
 }
 
-export function AudioTimeline({ videoRef }: AudioTimelineProps) {
+export function AudioTimeline({ videoRef: _videoRef }: AudioTimelineProps) {
   const {
     mainWaveform,
     bgmItems,
@@ -47,7 +47,7 @@ export function AudioTimeline({ videoRef }: AudioTimelineProps) {
   const playheadRatio = duration > 0 ? playheadTime / duration : 0;
 
   // BGM drag for offset adjustment
-  const [draggingBgm, setDraggingBgm] = useState<string | null>(null);
+  const [_draggingBgm, setDraggingBgm] = useState<string | null>(null);
   const dragStartRef = useRef<{ x: number; startOffset: number }>({ x: 0, startOffset: 0 });
 
   const handleBgmMouseDown = useCallback((e: React.MouseEvent, bgmId: string) => {

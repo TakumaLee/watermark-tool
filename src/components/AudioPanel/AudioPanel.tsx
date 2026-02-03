@@ -5,10 +5,9 @@ import { useAudioStore, generateBgmId } from '../../stores/audioStore';
 import { useVideoStore } from '../../stores/videoStore';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useModuleStore } from '../../stores/moduleStore';
-import type { BGMItem, WaveformData } from '../../types';
+import type { BGMItem } from '../../types';
 import { DEFAULT_BGM, SUPPORTED_AUDIO_EXTENSIONS } from '../../types';
 import { BGMCard } from './BGMCard';
-import { formatTime } from '../../utils/formatTime';
 
 export function AudioPanel() {
   const { videoInfo, videoPath } = useVideoStore();
@@ -69,7 +68,7 @@ export function AudioPanel() {
       });
       if (!selected) return;
 
-      const filePath = typeof selected === 'string' ? selected : selected.path;
+      const filePath = selected as string;
       const fileName = filePath.split('/').pop()?.split('\\').pop() ?? 'BGM';
 
       // Probe duration

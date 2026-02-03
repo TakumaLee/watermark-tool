@@ -53,14 +53,20 @@
       "nsis": {
         "displayLanguageSelector": true,
         "installerIcon": "icons/icon.ico",
-        "languages": ["English", "TradChinese"],
+        "languages": [
+          "English",
+          "TradChinese"
+        ],
         "headerImage": null,
         "sidebarImage": null
       }
     },
     "linux": {
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
         "section": "video",
         "priority": "optional"
       },
@@ -70,7 +76,6 @@
     }
   },
   "plugins": {
-    "dialog": {},
     "shell": {
       "open": true
     },

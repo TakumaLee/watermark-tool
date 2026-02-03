@@ -63,8 +63,7 @@ export function AIPanel() {
 // Whisper Auto-Subtitle Panel
 // ============================================================
 function WhisperPanel() {
-  const video = useVideoStore((s) => s.videoInfo);
-  const videoPath = useVideoStore((s) => s.filePath);
+  const videoPath = useVideoStore((s) => s.videoPath);
   const {
     whisperConfig,
     whisperState,
@@ -234,7 +233,7 @@ function WhisperPanel() {
 // Scene Detection Panel
 // ============================================================
 function SceneDetectPanel() {
-  const videoPath = useVideoStore((s) => s.filePath);
+  const videoPath = useVideoStore((s) => s.videoPath);
   const {
     sceneDetectConfig,
     sceneDetectState,
@@ -468,53 +467,14 @@ function ChromakeyPanel() {
 // Quality Enhancement Panel
 // ============================================================
 function EnhancementPanel() {
-  const videoPath = useVideoStore((s) => s.filePath);
   const {
     enhancementConfig,
-    enhancementState,
     setEnhancementConfig,
     setSharpenEnabled,
     setDenoiseEnabled,
     setUpscaleEnabled,
     resetEnhancement,
   } = useAIStore();
-
-  const handleRender = async () => {
-    if (!videoPath) return;
-
-    // Build enhancement config for Rust
-    const enhancement: any = {
-      sharpen: enhancementConfig.sharpen.enabled
-        ? {
-            luma_x: enhancementConfig.sharpen.lumaX,
-            luma_y: enhancementConfig.sharpen.lumaY,
-            luma_amount: enhancementConfig.sharpen.lumaAmount,
-          }
-        : null,
-      denoise: enhancementConfig.denoise.enabled
-        ? {
-            strength: enhancementConfig.denoise.strength,
-            filter_type: enhancementConfig.denoise.filterType,
-          }
-        : null,
-      upscale: enhancementConfig.upscale.enabled
-        ? { scale_factor: enhancementConfig.upscale.scaleFactor }
-        : null,
-    };
-
-    try {
-      const processId = await invoke<string>('render_with_enhancement', {
-        input: videoPath,
-        output: videoPath.replace(/\.[^.]+$/, '_enhanced.mp4'),
-        enhancement,
-        chromakey: null,
-        quality: 'high',
-      });
-      // Process ID can be used for progress tracking
-    } catch (err) {
-      console.error('Enhancement render failed:', err);
-    }
-  };
 
   return (
     <div className="space-y-3">
@@ -686,11 +646,10 @@ function EnhancementPanel() {
 // Silence Detection / Auto-Edit Panel
 // ============================================================
 function SilenceDetectPanel() {
-  const videoPath = useVideoStore((s) => s.filePath);
+  const videoPath = useVideoStore((s) => s.videoPath);
   const {
     silenceDetectConfig,
     silenceDetectState,
-    silenceSegments,
     editSuggestions,
     setSilenceDetectConfig,
     setSilenceDetectState,
@@ -698,7 +657,7 @@ function SilenceDetectPanel() {
     setEditSuggestions,
     clearSilenceResults,
   } = useAIStore();
-  const { splitAtTime, deleteClip } = useTimelineStore();
+  const { splitAtTime } = useTimelineStore();
 
   const handleDetect = async () => {
     if (!videoPath) return;

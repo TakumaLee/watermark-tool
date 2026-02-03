@@ -39,7 +39,7 @@ export function generateTextId(): string {
   return `txt_${Date.now()}_${++textIdCounter}`;
 }
 
-export const useTextStore = create<TextState>((set, get) => ({
+export const useTextStore = create<TextState>((set, _get) => ({
   textItems: [],
   selectedTextId: null,
   subtitles: [],

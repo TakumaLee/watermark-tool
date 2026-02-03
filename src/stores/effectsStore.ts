@@ -7,8 +7,6 @@ import type {
   RotationAngle,
   FlipDirection,
   CropRegion,
-  TransitionType,
-  TransitionDuration,
   SpeedValue,
 } from '../types';
 import { DEFAULT_FILTER_ADJUSTMENTS, DEFAULT_TRANSFORM } from '../types';

@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/core';
-import { appDataDir, join } from '@tauri-apps/api/path';
 import type { ModuleId, ModuleConfig } from '../types';
 import { ALL_MODULES, MODULE_CONFIG_VERSION } from '../types';
+
+// Check if running inside Tauri
+const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
 
 interface ModuleState {
   /** Set of enabled module IDs */
@@ -79,7 +80,28 @@ export const useModuleStore = create<ModuleState>((set, get) => ({
   },
 
   loadConfig: async () => {
+    if (!isTauri) {
+      // Browser fallback: use localStorage
+      try {
+        const raw = localStorage.getItem('watermark-modules');
+        if (raw) {
+          const config: ModuleConfig = JSON.parse(raw);
+          if (config.version === MODULE_CONFIG_VERSION) {
+            set({
+              enabledModules: new Set(config.enabledModules as ModuleId[]),
+              hasCompletedSetup: config.hasCompletedSetup,
+              isLoaded: true,
+            });
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+      set({ isLoaded: true, hasCompletedSetup: false });
+      return;
+    }
     try {
+      const { appDataDir, join } = await import('@tauri-apps/api/path');
+      const { invoke } = await import('@tauri-apps/api/core');
       const dataDir = await appDataDir();
       const configPath = await join(dataDir, 'modules.json');
       const content = await invoke<string>('load_preset', { path: configPath });
@@ -92,11 +114,9 @@ export const useModuleStore = create<ModuleState>((set, get) => ({
           isLoaded: true,
         });
       } else {
-        // Version mismatch, use defaults
         set({ isLoaded: true });
       }
     } catch {
-      // File doesn't exist or is invalid — first launch
       set({ isLoaded: true, hasCompletedSetup: false });
     }
   },
@@ -110,6 +130,14 @@ export const useModuleStore = create<ModuleState>((set, get) => ({
         hasCompletedSetup,
       };
 
+      if (!isTauri) {
+        // Browser fallback: use localStorage
+        localStorage.setItem('watermark-modules', JSON.stringify(config));
+        return;
+      }
+
+      const { appDataDir, join } = await import('@tauri-apps/api/path');
+      const { invoke } = await import('@tauri-apps/api/core');
       const dataDir = await appDataDir();
       const configPath = await join(dataDir, 'modules.json');
       await invoke('save_preset', {

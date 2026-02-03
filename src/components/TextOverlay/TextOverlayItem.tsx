@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import type { TextOverlayItem as TextOverlayItemType } from '../../types/text';
 import { useTextStore } from '../../stores/textStore';
-import { useVideoStore } from '../../stores/videoStore';
 
 interface Props {
   item: TextOverlayItemType;
@@ -18,7 +17,6 @@ type ResizeHandle = 'w' | 'e';
 
 export function TextOverlayItem({ item, isSelected, videoRect, currentTime, videoDuration }: Props) {
   const { updateTextItem, selectTextItem } = useTextStore();
-  const videoInfo = useVideoStore((s) => s.videoInfo);
   const itemRef = useRef<HTMLDivElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);

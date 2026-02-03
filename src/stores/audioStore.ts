@@ -62,7 +62,7 @@ export function generateBgmId(): string {
   return `bgm_${Date.now()}_${bgmIdCounter}`;
 }
 
-export const useAudioStore = create<AudioStoreState>((set, get) => ({
+export const useAudioStore = create<AudioStoreState>((set, _get) => ({
   mainVolume: 100,
   mainMuted: false,
   mainFade: { fadeInDuration: 0, fadeOutDuration: 0 },

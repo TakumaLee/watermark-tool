@@ -39,7 +39,7 @@ export function EffectsPanel() {
       });
 
       if (!result) return;
-      const filePath = typeof result === 'string' ? result : result.path;
+      const filePath = result as string;
 
       // Get video info for aspect ratio
       const info = await invoke<{ width: number; height: number; duration: number }>(

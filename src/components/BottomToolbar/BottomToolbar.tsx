@@ -6,9 +6,6 @@ import { useRenderStore } from '../../stores/renderStore';
 import { useBatchStore } from '../../stores/batchStore';
 import { useModuleStore } from '../../stores/moduleStore';
 import { useTimelineStore } from '../../stores/timelineStore';
-import { useTextStore } from '../../stores/textStore';
-import { useAudioStore } from '../../stores/audioStore';
-import { useEffectsStore } from '../../stores/effectsStore';
 import { useTimeline } from '../../hooks/useTimeline';
 import { useEffectsRender } from '../../hooks/useEffectsRender';
 import { OutputDialog } from '../dialogs/OutputDialog';
@@ -24,19 +21,8 @@ export function BottomToolbar() {
   const renderState = useRenderStore((s) => s.renderState);
   const batchState = useBatchStore((s) => s.batchState);
   const isWatermarkEnabled = useModuleStore((s) => s.isEnabled('watermark'));
-  const isTextEnabled = useModuleStore((s) => s.isEnabled('text'));
   const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
-  const isAudioEnabled = useModuleStore((s) => s.isEnabled('audio'));
   const isFiltersEnabled = useModuleStore((s) => s.isEnabled('filters'));
-  const audioHasChanges = useAudioStore((s) =>
-    s.mainVolume !== 100 || s.mainMuted || s.bgmItems.length > 0 ||
-    s.mainFade.fadeInDuration > 0 || s.mainFade.fadeOutDuration > 0
-  );
-  const effectsHasChanges = useEffectsStore((s) =>
-    s.filters.brightness !== 0 || s.filters.contrast !== 1.0 || s.filters.saturation !== 1.0 ||
-    s.speed !== 1 || s.reverse || s.pipLayers.length > 0 ||
-    s.transform.rotation !== 0 || s.transform.flip !== 'none' || s.transform.crop !== null
-  );
   const clips = useTimelineStore((s) => s.clips);
   const { exportTimeline, isProcessing: isTimelineProcessing, progress: timelineProgress } = useTimeline();
   const { exportWithEffects, isProcessing: isEffectsProcessing, progress: effectsProgress } = useEffectsRender();

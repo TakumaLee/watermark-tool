@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import { useEffectsStore } from '../../stores/effectsStore';
 
 interface CropOverlayProps {

@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { useEffectsStore } from '../../stores/effectsStore';
 import type { PiPConfig } from '../../types';
 
@@ -87,7 +87,7 @@ function PiPItem({
   onSelect,
   onUpdate,
 }: PiPItemProps) {
-  const [isDragging, setIsDragging] = useState(false);
+  const [_isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
 
   const pixelX = offsetX + pip.x * displayWidth;

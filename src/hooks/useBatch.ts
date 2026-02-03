@@ -166,7 +166,7 @@ export function useBatch() {
       });
 
       // Build file status list for UI
-      const fileStatuses: BatchFileStatus[] = selectedFiles.map((f, i) => {
+      const fileStatuses: BatchFileStatus[] = selectedFiles.map((f, _i) => {
         const outputName = buildOutputName(f.name, namingMode, prefix, suffix);
         return {
           path: f.path,

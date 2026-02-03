@@ -6,12 +6,10 @@ import { useWatermarkStore } from '../stores/watermarkStore';
 import { useTextStore } from '../stores/textStore';
 import { useAudioStore } from '../stores/audioStore';
 import { useEffectsStore } from '../stores/effectsStore';
-import { useTimelineStore } from '../stores/timelineStore';
 import type {
-  EffectsRenderConfig,
   PiPRenderConfig,
-  TransitionRenderConfig,
 } from '../types';
+import type { TextOverlayItem } from '../types/text';
 
 export function useEffectsRender() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -35,7 +33,7 @@ export function useEffectsRender() {
     try {
       // Gather all configs
       const watermarks = useWatermarkStore.getState().watermarks.map((wm) => ({
-        image_path: wm.imagePath,
+        image_path: wm.filePath,
         x: wm.x,
         y: wm.y,
         width: wm.width,
@@ -44,8 +42,8 @@ export function useEffectsRender() {
         movement: wm.movement,
       }));
 
-      const { textOverlays, subtitles, subtitleStyle, showSubtitles } = useTextStore.getState();
-      const texts = textOverlays.map((t) => ({
+      const { textItems, subtitles, subtitleStyle, subtitlesEnabled } = useTextStore.getState();
+      const texts = textItems.map((t: TextOverlayItem) => ({
         content: t.content,
         font_family: t.fontFamily,
         font_size: t.fontSize,
@@ -62,7 +60,7 @@ export function useEffectsRender() {
         end_time: t.endTime,
       }));
 
-      const subtitle = showSubtitles && subtitles.length > 0 ? {
+      const subtitle = subtitlesEnabled && subtitles.length > 0 ? {
         entries: subtitles.map((s) => ({
           index: s.index,
           start_time: s.startTime,
@@ -75,7 +73,7 @@ export function useEffectsRender() {
           color: subtitleStyle.color,
           stroke_color: subtitleStyle.strokeColor,
           stroke_width: subtitleStyle.strokeWidth,
-          vertical_position: subtitleStyle.verticalPosition,
+          vertical_position: subtitleStyle.positionY,
         },
       } : null;
 
@@ -89,12 +87,12 @@ export function useEffectsRender() {
         bgm_items: audioState.bgmItems.map((b) => ({
           file_path: b.filePath,
           volume: b.volume / 100,
-          muted: b.muted,
+          muted: b.isMuted,
           start_offset: b.startOffset,
           trim_start: b.trimStart,
           trim_end: b.trimEnd,
-          fade_in: b.fade.fadeInDuration,
-          fade_out: b.fade.fadeOutDuration,
+          fade_in: b.fadeIn,
+          fade_out: b.fadeOut,
         })),
         clip_volumes: [],
       };

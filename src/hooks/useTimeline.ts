@@ -14,8 +14,8 @@ interface TrimProgressEvent {
 }
 
 export function useTimeline() {
-  const { clips, totalDuration } = useTimelineStore();
-  const { videoPath, videoInfo } = useVideoStore();
+  const { clips } = useTimelineStore();
+  useVideoStore();
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);

@@ -14,7 +14,6 @@ import type {
   SilenceDetectState,
   SilenceSegment,
   EditSuggestion,
-  AITaskStatus,
 } from '../types';
 import {
   DEFAULT_WHISPER_CONFIG,
@@ -80,7 +79,7 @@ interface AIStoreState {
   clearAll: () => void;
 }
 
-export const useAIStore = create<AIStoreState>((set, get) => ({
+export const useAIStore = create<AIStoreState>((set, _get) => ({
   // === Whisper ===
   whisperConfig: { ...DEFAULT_WHISPER_CONFIG },
   whisperState: { status: 'idle', progress: 0, progressText: '', error: null },

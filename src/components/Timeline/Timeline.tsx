@@ -6,7 +6,7 @@ import { formatTime } from '../../utils/formatTime';
 import { TimelineClipItem } from './TimelineClipItem';
 import { TimelineRuler } from './TimelineRuler';
 import { TransitionIcon } from './TransitionIcon';
-import { TIMELINE_ZOOM } from '../../types';
+// import { TIMELINE_ZOOM } from '../../types';
 
 interface TimelineProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -32,7 +32,6 @@ export function Timeline({ videoRef }: TimelineProps) {
 
   const { videoInfo } = useVideoStore();
   const isFiltersEnabled = useModuleStore((s) => s.isEnabled('filters'));
-  const sortedClips = clips; // clips are already in order
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);

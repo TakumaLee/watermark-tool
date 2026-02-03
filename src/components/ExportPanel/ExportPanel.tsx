@@ -4,14 +4,11 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { useVideoStore } from '../../stores/videoStore';
 import { useExportStore, generateTaskId } from '../../stores/exportStore';
 import type {
-  ExportPlatformId,
   ExportTask,
-  GifExportSettings,
-  PlatformExportConfig,
   GifExportConfig,
   ThumbnailExportConfig,
 } from '../../types';
-import { PLATFORM_PRESETS, GIF_FPS_OPTIONS, DEFAULT_GIF_SETTINGS } from '../../types';
+import { PLATFORM_PRESETS, GIF_FPS_OPTIONS } from '../../types';
 
 export function ExportPanel() {
   const { videoPath, videoInfo } = useVideoStore();
@@ -142,10 +139,6 @@ export function ExportPanel() {
 
     for (const platform of platforms) {
       const ext = platform.format === 'mov' ? 'mov' : 'mp4';
-      const name = videoInfo?.codec
-        ? `output_${platform.id}.${ext}`
-        : `output_${platform.id}.${ext}`;
-
       // For batch, auto-generate paths in same directory
       const basePath = videoPath.replace(/\.[^.]+$/, '');
       const outputPath = `${basePath}_${platform.id}.${ext}`;
