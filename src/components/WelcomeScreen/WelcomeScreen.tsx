@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useModuleStore } from '../../stores/moduleStore';
 import { ALL_MODULES } from '../../types';
 import type { ModuleId } from '../../types';
@@ -6,10 +6,22 @@ import type { ModuleId } from '../../types';
 export function WelcomeScreen() {
   const { completeSetup, setModules } = useModuleStore();
 
-  // Initialize with default-enabled modules
-  const [selected, setSelected] = useState<Set<ModuleId>>(() => {
-    return new Set(ALL_MODULES.filter((m) => m.defaultEnabled).map((m) => m.id));
-  });
+  // Compute default module IDs once
+  const defaultModuleIds = useMemo(() => {
+    return ALL_MODULES.filter((m) => m.defaultEnabled).map((m) => m.id);
+  }, []);
+
+  // Start with empty set, then populate in useEffect
+  const [selected, setSelected] = useState<Set<ModuleId>>(new Set());
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize selected modules on mount
+  useEffect(() => {
+    if (!isInitialized) {
+      setSelected(new Set(defaultModuleIds));
+      setIsInitialized(true);
+    }
+  }, [defaultModuleIds, isInitialized]);
 
   const handleToggle = (moduleId: ModuleId) => {
     const next = new Set(selected);
@@ -40,6 +52,10 @@ export function WelcomeScreen() {
     return acc;
   }, {});
 
+  // Button should be enabled if we have selected modules OR we haven't initialized yet
+  // (to prevent flash of disabled state)
+  const canStart = isInitialized ? selected.size > 0 : defaultModuleIds.length > 0;
+
   return (
     <div className="fixed inset-0 z-50 bg-bg-primary flex items-center justify-center">
       <div className="w-full max-w-lg mx-4">
@@ -63,7 +79,10 @@ export function WelcomeScreen() {
               </h3>
               <div className="space-y-2">
                 {modules.map((mod) => {
-                  const isSelected = selected.has(mod.id);
+                  // Before initialization, show default-enabled as selected
+                  const isSelected = isInitialized 
+                    ? selected.has(mod.id)
+                    : mod.defaultEnabled;
                   const isDefault = mod.defaultEnabled;
 
                   return (
@@ -122,7 +141,7 @@ export function WelcomeScreen() {
         <div className="text-center">
           <button
             onClick={handleStart}
-            disabled={selected.size === 0}
+            disabled={!canStart}
             className="px-8 py-3 bg-accent hover:bg-accent/80 text-white rounded-lg text-sm font-medium
                        transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
           >
