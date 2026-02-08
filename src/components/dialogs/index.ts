@@ -3,3 +3,4 @@ export { RenderProgress } from './RenderProgress';
 export { PresetDialog } from './PresetDialog';
 export { BatchDialog } from './BatchDialog';
 export { BatchProgressDialog } from './BatchProgressDialog';
+export { LicenseDialog } from './LicenseDialog';

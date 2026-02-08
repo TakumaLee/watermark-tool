@@ -1,0 +1,1 @@
+export { WatermarkRemover } from './WatermarkRemover';

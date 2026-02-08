@@ -59,6 +59,11 @@ pub fn run() {
             commands::ai::render_with_enhancement,
             commands::ai::check_iopaint_available,
             commands::ai::remove_watermark,
+            commands::ai::detect_watermark,
+            // License commands
+            commands::license::validate_license,
+            commands::license::get_license_status,
+            commands::license::clear_license,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

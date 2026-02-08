@@ -15,9 +15,12 @@ import {
   WHISPER_LANGUAGES,
   WHISPER_MODELS,
 } from '../../types';
+import { LicenseGate } from '../LicenseGate';
+import { WatermarkRemover } from '../WatermarkRemover';
+import { LicenseDialog } from '../dialogs/LicenseDialog';
 
 export function AIPanel() {
-  const [activeTab, setActiveTab] = useState<'subtitle' | 'scene' | 'chromakey' | 'enhance' | 'silence'>('subtitle');
+  const [activeTab, setActiveTab] = useState<'subtitle' | 'scene' | 'chromakey' | 'enhance' | 'silence' | 'wmremove'>('subtitle');
 
   const tabs = [
     { id: 'subtitle' as const, label: '🎤 字幕', title: 'AI 自動字幕' },
@@ -25,6 +28,7 @@ export function AIPanel() {
     { id: 'chromakey' as const, label: '🟩 去背', title: '背景移除' },
     { id: 'enhance' as const, label: '✨ 畫質', title: '畫質提升' },
     { id: 'silence' as const, label: '🔇 靜音', title: '靜音偵測' },
+    { id: 'wmremove' as const, label: '🧹 去浮水印', title: '移除浮水印' },
   ];
 
   return (
@@ -54,7 +58,15 @@ export function AIPanel() {
         {activeTab === 'chromakey' && <ChromakeyPanel />}
         {activeTab === 'enhance' && <EnhancementPanel />}
         {activeTab === 'silence' && <SilenceDetectPanel />}
+        {activeTab === 'wmremove' && (
+          <LicenseGate feature="watermark_removal">
+            <WatermarkRemover />
+          </LicenseGate>
+        )}
       </div>
+
+      {/* License dialog (global) */}
+      <LicenseDialog />
     </div>
   );
 }

@@ -9,6 +9,48 @@ use crate::ffmpeg::ai::{
     WatermarkRegion, WatermarkRemovalConfig,
 };
 
+/// Detect watermark regions in a video using the Python detection script.
+#[tauri::command]
+pub async fn detect_watermark(
+    input: String,
+    frames: Option<u32>,
+    threshold: Option<f64>,
+) -> Result<Vec<WatermarkRegion>, String> {
+    tokio::task::spawn_blocking(move || {
+        let script_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts");
+        let detect_script = script_dir.join("detect_watermark.py");
+
+        let num_frames = frames.unwrap_or(30);
+        let thresh = threshold.unwrap_or(15.0);
+
+        let output = Command::new("python3")
+            .arg(&detect_script)
+            .arg("--input")
+            .arg(&input)
+            .arg("--frames")
+            .arg(num_frames.to_string())
+            .arg("--threshold")
+            .arg(thresh.to_string())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(|e| format!("Failed to run detect_watermark.py: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Watermark detection failed: {}", stderr));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let regions: Vec<WatermarkRegion> = serde_json::from_str(stdout.trim())
+            .map_err(|e| format!("Failed to parse detection output: {}", e))?;
+
+        Ok(regions)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
 use super::ffmpeg::{get_render_progress_map, parse_ffmpeg_progress_pub};
 
 /// Check if whisper CLI is available on the system
