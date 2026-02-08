@@ -339,6 +339,129 @@ pub fn parse_silence_detect_output(output: &str) -> Vec<SilenceSegment> {
     segments
 }
 
+// === Watermark Removal (AI Inpainting) ===
+
+/// A rectangular region marking a watermark to be removed
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WatermarkRegion {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Configuration for AI watermark removal
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WatermarkRemovalConfig {
+    pub regions: Vec<WatermarkRegion>,
+    /// Inpainting model: "lama", "opencv-telea", "opencv-ns"
+    pub model: String,
+    /// Device: "cpu" or "cuda"
+    pub device: String,
+}
+
+impl WatermarkRegion {
+    /// Format as "x,y,w,h" for CLI arguments
+    pub fn to_arg_string(&self) -> String {
+        format!("{},{},{},{}", self.x, self.y, self.width, self.height)
+    }
+}
+
+impl WatermarkRemovalConfig {
+    /// Build regions argument string for generate_mask.py: "x,y,w,h;x,y,w,h"
+    pub fn regions_arg(&self) -> String {
+        self.regions
+            .iter()
+            .map(|r| r.to_arg_string())
+            .collect::<Vec<_>>()
+            .join(";")
+    }
+
+    /// Build generate_mask.py CLI args
+    pub fn build_mask_args(&self, width: u32, height: u32, output_path: &str) -> Vec<String> {
+        vec![
+            "--width".to_string(),
+            width.to_string(),
+            "--height".to_string(),
+            height.to_string(),
+            "--regions".to_string(),
+            self.regions_arg(),
+            "--output".to_string(),
+            output_path.to_string(),
+        ]
+    }
+
+    /// Build IOPaint CLI args for batch inpainting
+    pub fn build_iopaint_args(
+        &self,
+        input_dir: &str,
+        mask_path: &str,
+        output_dir: &str,
+    ) -> Vec<String> {
+        vec![
+            "run".to_string(),
+            "--model".to_string(),
+            self.model.clone(),
+            "--device".to_string(),
+            self.device.clone(),
+            "--input".to_string(),
+            input_dir.to_string(),
+            "--mask".to_string(),
+            mask_path.to_string(),
+            "--output".to_string(),
+            output_dir.to_string(),
+        ]
+    }
+}
+
+/// Build FFmpeg args to extract frames as PNGs
+pub fn build_extract_frames_args(input: &str, output_pattern: &str) -> Vec<String> {
+    vec![
+        "-i".to_string(),
+        input.to_string(),
+        "-vsync".to_string(),
+        "0".to_string(),
+        output_pattern.to_string(),
+    ]
+}
+
+/// Build FFmpeg args to reassemble frames into video with original audio
+pub fn build_reassemble_frames_args(
+    frames_pattern: &str,
+    original_input: &str,
+    output: &str,
+    fps: f64,
+    crf: u32,
+    preset: &str,
+) -> Vec<String> {
+    vec![
+        "-y".to_string(),
+        "-framerate".to_string(),
+        format!("{}", fps),
+        "-i".to_string(),
+        frames_pattern.to_string(),
+        "-i".to_string(),
+        original_input.to_string(),
+        "-map".to_string(),
+        "0:v".to_string(),
+        "-map".to_string(),
+        "1:a?".to_string(),
+        "-c:v".to_string(),
+        "libx264".to_string(),
+        "-crf".to_string(),
+        crf.to_string(),
+        "-preset".to_string(),
+        preset.to_string(),
+        "-c:a".to_string(),
+        "copy".to_string(),
+        "-pix_fmt".to_string(),
+        "yuv420p".to_string(),
+        "-progress".to_string(),
+        "pipe:2".to_string(),
+        output.to_string(),
+    ]
+}
+
 // ============================================================
 // Tests
 // ============================================================
@@ -617,5 +740,113 @@ mod tests {
         let json = serde_json::to_string(&seg).unwrap();
         let parsed: SilenceSegment = serde_json::from_str(&json).unwrap();
         assert!((parsed.start_time - 1.5).abs() < 0.001);
+    }
+
+    // --- Watermark Removal ---
+
+    #[test]
+    fn test_watermark_region_serialization() {
+        let region = WatermarkRegion { x: 10, y: 20, width: 100, height: 50 };
+        let json = serde_json::to_string(&region).unwrap();
+        let parsed: WatermarkRegion = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.x, 10);
+        assert_eq!(parsed.y, 20);
+        assert_eq!(parsed.width, 100);
+        assert_eq!(parsed.height, 50);
+    }
+
+    #[test]
+    fn test_watermark_region_to_arg_string() {
+        let region = WatermarkRegion { x: 10, y: 20, width: 100, height: 50 };
+        assert_eq!(region.to_arg_string(), "10,20,100,50");
+    }
+
+    #[test]
+    fn test_watermark_removal_config_serialization() {
+        let config = WatermarkRemovalConfig {
+            regions: vec![
+                WatermarkRegion { x: 0, y: 0, width: 200, height: 60 },
+                WatermarkRegion { x: 500, y: 400, width: 150, height: 40 },
+            ],
+            model: "lama".to_string(),
+            device: "cpu".to_string(),
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let parsed: WatermarkRemovalConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.regions.len(), 2);
+        assert_eq!(parsed.model, "lama");
+        assert_eq!(parsed.device, "cpu");
+    }
+
+    #[test]
+    fn test_watermark_removal_config_regions_arg() {
+        let config = WatermarkRemovalConfig {
+            regions: vec![
+                WatermarkRegion { x: 10, y: 20, width: 100, height: 50 },
+                WatermarkRegion { x: 300, y: 400, width: 200, height: 80 },
+            ],
+            model: "lama".to_string(),
+            device: "cpu".to_string(),
+        };
+        assert_eq!(config.regions_arg(), "10,20,100,50;300,400,200,80");
+    }
+
+    #[test]
+    fn test_watermark_removal_config_single_region() {
+        let config = WatermarkRemovalConfig {
+            regions: vec![WatermarkRegion { x: 0, y: 0, width: 50, height: 30 }],
+            model: "opencv-telea".to_string(),
+            device: "cpu".to_string(),
+        };
+        assert_eq!(config.regions_arg(), "0,0,50,30");
+    }
+
+    #[test]
+    fn test_build_mask_args() {
+        let config = WatermarkRemovalConfig {
+            regions: vec![WatermarkRegion { x: 10, y: 20, width: 100, height: 50 }],
+            model: "lama".to_string(),
+            device: "cpu".to_string(),
+        };
+        let args = config.build_mask_args(1920, 1080, "/tmp/mask.png");
+        assert_eq!(args, vec![
+            "--width", "1920", "--height", "1080",
+            "--regions", "10,20,100,50",
+            "--output", "/tmp/mask.png",
+        ]);
+    }
+
+    #[test]
+    fn test_build_iopaint_args() {
+        let config = WatermarkRemovalConfig {
+            regions: vec![],
+            model: "lama".to_string(),
+            device: "cuda".to_string(),
+        };
+        let args = config.build_iopaint_args("/tmp/frames", "/tmp/mask.png", "/tmp/out");
+        assert_eq!(args, vec![
+            "run", "--model", "lama", "--device", "cuda",
+            "--input", "/tmp/frames", "--mask", "/tmp/mask.png",
+            "--output", "/tmp/out",
+        ]);
+    }
+
+    #[test]
+    fn test_build_extract_frames_args() {
+        let args = build_extract_frames_args("/tmp/video.mp4", "/tmp/frames/frame_%05d.png");
+        assert_eq!(args[0], "-i");
+        assert_eq!(args[1], "/tmp/video.mp4");
+        assert!(args.last().unwrap().contains("frame_%05d.png"));
+    }
+
+    #[test]
+    fn test_build_reassemble_frames_args() {
+        let args = build_reassemble_frames_args(
+            "/tmp/out/frame_%05d.png", "/tmp/video.mp4", "/tmp/result.mp4", 30.0, 18, "medium"
+        );
+        assert!(args.contains(&"-framerate".to_string()));
+        assert!(args.contains(&"30".to_string()));
+        assert!(args.contains(&"/tmp/result.mp4".to_string()));
+        assert!(args.contains(&"18".to_string()));
     }
 }

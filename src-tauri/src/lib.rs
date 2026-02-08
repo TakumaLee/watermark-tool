@@ -57,6 +57,8 @@ pub fn run() {
             commands::ai::detect_scenes,
             commands::ai::detect_silence,
             commands::ai::render_with_enhancement,
+            commands::ai::check_iopaint_available,
+            commands::ai::remove_watermark,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
