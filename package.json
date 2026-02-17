@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "watermark-tool": "./cli.js"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -11,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "cli": "node cli.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
