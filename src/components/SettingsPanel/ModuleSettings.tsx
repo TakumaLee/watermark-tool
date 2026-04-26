@@ -1,5 +1,5 @@
 import { useModuleStore } from '../../stores/moduleStore';
-import { useUIStore, FONT_SIZE_MAP } from '../../stores/uiStore';
+import { useUIStore } from '../../stores/uiStore';
 import type { FontSize } from '../../stores/uiStore';
 import { ALL_MODULES } from '../../types';
 import type { ModuleId } from '../../types';

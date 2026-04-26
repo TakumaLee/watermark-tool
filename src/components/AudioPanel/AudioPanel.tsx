@@ -10,7 +10,7 @@ import { DEFAULT_BGM, SUPPORTED_AUDIO_EXTENSIONS } from '../../types';
 import { BGMCard } from './BGMCard';
 
 export function AudioPanel() {
-  const { videoInfo, videoPath } = useVideoStore();
+  const { videoPath } = useVideoStore();
   const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
   const clips = useTimelineStore((s) => s.clips);
 

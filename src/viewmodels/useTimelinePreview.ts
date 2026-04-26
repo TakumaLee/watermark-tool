@@ -51,31 +51,34 @@ export function useTimelinePreview(
 
     if (nextClip && secondary && nextClip.sourcePath !== active.clip.sourcePath) {
       if (secondaryPreloadRef.current?.clipId !== nextClip.id) {
-        // Cancel any pending canplay/seeked listeners for the previous preload
+        // Cancel any pending listeners from the previous preload, then start fresh.
         preloadCleanupRef.current?.();
-        preloadCleanupRef.current = null;
 
         secondaryPreloadRef.current = { clipId: nextClip.id, ready: false };
         secondary.src = nextClip.sourceUrl;
         secondary.load();
 
+        // Capture by value so the cleanup can cancel both listeners independently.
+        const targetId = nextClip.id;
+        const startTime = nextClip.startTime;
+
+        const onSeeked = () => {
+          if (secondaryPreloadRef.current?.clipId === targetId) {
+            secondaryPreloadRef.current.ready = true;
+          }
+        };
+
         const onCanPlay = () => {
-          secondary.currentTime = nextClip.startTime;
-          const onSeeked = () => {
-            if (secondaryPreloadRef.current?.clipId === nextClip.id) {
-              secondaryPreloadRef.current.ready = true;
-            }
-          };
+          secondary.currentTime = startTime;
           secondary.addEventListener('seeked', onSeeked, { once: true });
-          preloadCleanupRef.current = () =>
-            secondary.removeEventListener('seeked', onSeeked);
         };
 
         secondary.addEventListener('canplay', onCanPlay, { once: true });
-        const prevCleanup = preloadCleanupRef.current;
+
         preloadCleanupRef.current = () => {
           secondary.removeEventListener('canplay', onCanPlay);
-          prevCleanup?.();
+          secondary.removeEventListener('seeked', onSeeked);
+          preloadCleanupRef.current = null;
         };
       }
     } else if (!nextClip) {
