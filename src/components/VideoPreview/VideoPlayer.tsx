@@ -1,9 +1,12 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import { useVideoStore } from '../../stores/videoStore';
 import { useWatermarkStore } from '../../stores/watermarkStore';
 import { useModuleStore } from '../../stores/moduleStore';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useEffectsStore } from '../../stores/effectsStore';
+import { useTimelinePreview } from '../../viewmodels/useTimelinePreview';
+import { useClipPlayback } from '../../viewmodels/useClipPlayback';
+import { useBGMPreview } from '../../viewmodels/useBGMPreview';
 import { formatTime } from '../../utils/formatTime';
 import { getAspectRatioLabel } from '../../utils/aspectRatio';
 import { WatermarkOverlay } from '../WatermarkOverlay';
@@ -16,63 +19,141 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
-  const internalVideoRef = useRef<HTMLVideoElement>(null);
-  const videoRef = externalVideoRef ?? internalVideoRef;
-  const containerRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
+  // Two physical <video> elements for double-buffer clip transitions.
+  // One is always visible+playing (primary), the other preloads the next clip (secondary).
+  const slot0Ref = useRef<HTMLVideoElement>(null);
+  const slot1Ref = useRef<HTMLVideoElement>(null);
+
+  // Which slot is currently the active (visible) one.
+  const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
+
+  // Stable refs whose .current points to the active/secondary element.
+  // Updated synchronously in useLayoutEffect so all hooks always see the live element.
+  const primaryRef = useRef<HTMLVideoElement | null>(null);
+  const secondaryRef = useRef<HTMLVideoElement | null>(null);
+
+  // Keep external ref accessible without adding it to reactive deps.
+  const extRefHolder = useRef(externalVideoRef);
+  extRefHolder.current = externalVideoRef;
+
+  // Initialise on first mount and sync on every slot swap.
+  const isInitialRef = useRef(true);
+  useLayoutEffect(() => {
+    const slot0 = slot0Ref.current;
+    const slot1 = slot1Ref.current;
+    const newPrimary = activeSlot === 0 ? slot0 : slot1;
+    const newSecondary = activeSlot === 0 ? slot1 : slot0;
+
+    // Mute secondary, unmute primary to prevent audio overlap.
+    if (slot0) slot0.muted = activeSlot !== 0;
+    if (slot1) slot1.muted = activeSlot !== 1;
+
+    primaryRef.current = newPrimary;
+    secondaryRef.current = newSecondary;
+    if (extRefHolder.current) extRefHolder.current.current = newPrimary;
+
+    // Notify Timeline to re-attach its timeupdate listener to the new element.
+    if (!isInitialRef.current) {
+      useTimelineStore.getState().bumpSlotVersion();
+    }
+    isInitialRef.current = false;
+  }, [activeSlot]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Called by useTimelinePreview at a clip boundary when the secondary is preloaded.
+  const swapSlots = useCallback(() => {
+    setActiveSlot((s) => (s === 0 ? 1 : 0));
+  }, []);
+
   const { videoUrl, videoInfo, videoPath } = useVideoStore();
+  const prevVideoPathRef = useRef<string | null>(null);
   const isWatermarkEnabled = useModuleStore((s) => s.isEnabled('watermark'));
   const isTextEnabled = useModuleStore((s) => s.isEnabled('text'));
   const isTrimEnabled = useModuleStore((s) => s.isEnabled('trim'));
   const isFiltersEnabled = useModuleStore((s) => s.isEnabled('filters'));
 
-  // Effects store for CSS filter preview + speed
-  const filters = useEffectsStore((s) => s.filters);
-  const speed = useEffectsStore((s) => s.speed);
-  const transform = useEffectsStore((s) => s.transform);
-  const pipLayers = useEffectsStore((s) => s.pipLayers);
+  // Load new video into primary slot on import; clear secondary preload state.
+  useEffect(() => {
+    if (!videoUrl) return;
+    const primary = primaryRef.current;
+    if (primary) { primary.src = videoUrl; primary.load(); }
+    const secondary = secondaryRef.current;
+    if (secondary) { secondary.removeAttribute('src'); secondary.load(); }
+  }, [videoUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Plug hooks into the active slot; re-attach when slot swaps (activeSlot in each dep array).
+  useTimelinePreview(primaryRef, secondaryRef, swapSlots, activeSlot);
+  useClipPlayback(primaryRef, activeSlot);
+  useBGMPreview(primaryRef, activeSlot);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const isSeekingRef = useRef(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isSeeking, setIsSeeking] = useState(false);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
 
-  // Expose elements for overlay after mount
+  // Keep overlay refs in sync with the active slot element.
   useEffect(() => {
-    setVideoElement(videoRef.current);
+    setVideoElement(primaryRef.current);
     setContainerElement(containerRef.current);
-  }, [videoRef]);
+  }, [activeSlot]);
 
-  // Initialize timeline when video loads (if trim module is enabled)
+  // Playback state events — re-attach to new primary on slot swap.
   useEffect(() => {
-    if (isTrimEnabled && videoInfo && videoPath && duration > 0) {
-      const { clips } = useTimelineStore.getState();
-      // Only init if timeline is empty or video changed
-      if (clips.length === 0 || clips[0].sourcePath !== videoPath) {
-        const fileName = videoPath.split('/').pop()?.split('\\').pop() ?? 'Video';
-        useTimelineStore.getState().initFromVideo(videoPath, videoUrl ?? '', duration, fileName);
-      }
+    const video = primaryRef.current;
+    if (!video) return;
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onTimeUpdate = () => {
+      if (!isSeekingRef.current) setCurrentTime(video.currentTime);
+    };
+    const onMeta = () => setDuration(video.duration);
+    const onEnded = () => setIsPlaying(false);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('loadedmetadata', onMeta);
+    video.addEventListener('ended', onEnded);
+    return () => {
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('pause', onPause);
+      video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('loadedmetadata', onMeta);
+      video.removeEventListener('ended', onEnded);
+    };
+  }, [activeSlot]);
+
+  // Initialize timeline when a video is loaded (trim module only).
+  useEffect(() => {
+    if (!isTrimEnabled || !videoInfo || !videoPath || duration <= 0) return;
+    const { clips } = useTimelineStore.getState();
+    const videoPathChanged = videoPath !== prevVideoPathRef.current;
+    prevVideoPathRef.current = videoPath;
+
+    const shouldInit =
+      clips.length === 0 ||
+      (videoPathChanged && !clips.some((c) => c.sourcePath === videoPath));
+
+    if (shouldInit) {
+      const fileName = videoPath.split('/').pop()?.split('\\').pop() ?? 'Video';
+      useTimelineStore.getState().initFromVideo(videoPath, videoUrl ?? '', duration, fileName);
     }
   }, [isTrimEnabled, videoInfo, videoPath, videoUrl, duration]);
 
-  // Deselect watermark when clicking on video
+  // Play / pause on click.
   const handleVideoClick = useCallback(() => {
-    const video = videoRef.current;
+    const video = primaryRef.current;
     if (!video) return;
+    if (video.paused) video.play();
+    else video.pause();
+  }, []);
 
-    if (video.paused) {
-      video.play();
-    } else {
-      video.pause();
-    }
-  }, [videoRef]);
-
-  // Keyboard: space to play/pause, delete to remove watermark, arrows to nudge, S to split
+  // Keyboard shortcuts.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't handle if typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       if (e.code === 'Space') {
@@ -88,27 +169,22 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
         useWatermarkStore.getState().selectWatermark(null);
         useTimelineStore.getState().selectClip(null);
       } else if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey && isTrimEnabled) {
-        // Split at playhead
         e.preventDefault();
         useTimelineStore.getState().splitAtPlayhead();
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
         const { selectedId, watermarks, updateWatermark } = useWatermarkStore.getState();
         if (!selectedId) return;
         e.preventDefault();
-
         const wm = watermarks.find((w) => w.id === selectedId);
         if (!wm) return;
-
-        const step = e.shiftKey ? 0.01 : 0.001; // ~10px or ~1px
+        const step = e.shiftKey ? 0.01 : 0.001;
         let { x, y } = wm;
-
         switch (e.code) {
           case 'ArrowUp': y = Math.max(0, y - step); break;
           case 'ArrowDown': y = Math.min(1 - wm.height, y + step); break;
           case 'ArrowLeft': x = Math.max(0, x - step); break;
           case 'ArrowRight': x = Math.min(1 - wm.width, x + step); break;
         }
-
         updateWatermark(selectedId, { x, y });
       }
     };
@@ -116,38 +192,33 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleVideoClick, isTrimEnabled]);
 
-  // Seek via progress bar click
-  const handleProgressClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const video = videoRef.current;
-      const bar = progressRef.current;
-      if (!video || !bar) return;
+  // Seek via progress bar click.
+  const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const video = primaryRef.current;
+    const bar = progressRef.current;
+    if (!video || !bar) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    video.currentTime = ratio * video.duration;
+  }, []);
 
-      const rect = bar.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      video.currentTime = ratio * video.duration;
-    },
-    [videoRef],
-  );
-
-  // Seek via drag on progress bar
+  // Seek via drag on progress bar.
   const handleProgressMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      setIsSeeking(true);
+      isSeekingRef.current = true;
       handleProgressClick(e);
 
       const handleMouseMove = (me: MouseEvent) => {
-        const video = videoRef.current;
+        const video = primaryRef.current;
         const bar = progressRef.current;
         if (!video || !bar) return;
-
         const rect = bar.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
         video.currentTime = ratio * video.duration;
       };
 
       const handleMouseUp = () => {
-        setIsSeeking(false);
+        isSeekingRef.current = false;
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
       };
@@ -155,72 +226,71 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     },
-    [handleProgressClick, videoRef],
+    [handleProgressClick],
   );
 
-  // CSS filter preview for video element
+  // Effects store for CSS filter preview + speed.
+  const filters = useEffectsStore((s) => s.filters);
+  const speed = useEffectsStore((s) => s.speed);
+  const transform = useEffectsStore((s) => s.transform);
+  const pipLayers = useEffectsStore((s) => s.pipLayers);
+
   const cssFilterStyle = isFiltersEnabled
     ? `brightness(${1 + filters.brightness}) contrast(${filters.contrast}) saturate(${filters.saturation})`
     : undefined;
 
-  // CSS transform preview for rotation/flip
   const cssTransformParts: string[] = [];
-  if (transform.rotation !== 0) {
-    cssTransformParts.push(`rotate(${transform.rotation}deg)`);
-  }
-  if (transform.flip === 'horizontal' || transform.flip === 'both') {
-    cssTransformParts.push('scaleX(-1)');
-  }
-  if (transform.flip === 'vertical' || transform.flip === 'both') {
-    cssTransformParts.push('scaleY(-1)');
-  }
+  if (transform.rotation !== 0) cssTransformParts.push(`rotate(${transform.rotation}deg)`);
+  if (transform.flip === 'horizontal' || transform.flip === 'both') cssTransformParts.push('scaleX(-1)');
+  if (transform.flip === 'vertical' || transform.flip === 'both') cssTransformParts.push('scaleY(-1)');
   const cssTransformStyle = isFiltersEnabled && cssTransformParts.length > 0
     ? cssTransformParts.join(' ')
     : undefined;
 
-  // Sync playbackRate when speed changes
+  // Sync playbackRate when speed changes; re-apply after slot swap.
   useEffect(() => {
-    if (videoRef.current && isFiltersEnabled) {
-      videoRef.current.playbackRate = speed;
+    if (primaryRef.current && isFiltersEnabled) {
+      primaryRef.current.playbackRate = speed;
     }
-  }, [speed, isFiltersEnabled, videoRef]);
+  }, [speed, isFiltersEnabled, activeSlot]);
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
   const aspectLabel = videoInfo ? getAspectRatioLabel(videoInfo.width, videoInfo.height) : '';
 
   return (
     <div className="flex flex-col h-full">
-      {/* Video container with watermark overlay */}
+      {/* Video container with overlays */}
       <div
         ref={containerRef}
         className="flex-1 flex items-center justify-center bg-black/40 rounded-lg overflow-hidden min-h-0 relative"
       >
+        {/* Slot 0 — visible when activeSlot === 0 */}
         <video
-          ref={videoRef}
-          src={videoUrl ?? undefined}
+          ref={slot0Ref}
           className="max-w-full max-h-full object-contain"
           style={{
-            filter: cssFilterStyle,
-            transform: cssTransformStyle,
+            filter: activeSlot === 0 ? cssFilterStyle : undefined,
+            transform: activeSlot === 0 ? cssTransformStyle : undefined,
+            display: activeSlot === 0 ? undefined : 'none',
           }}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onTimeUpdate={() => {
-            if (!isSeeking && videoRef.current) {
-              setCurrentTime(videoRef.current.currentTime);
-            }
-          }}
-          onLoadedMetadata={() => {
-            if (videoRef.current) {
-              setDuration(videoRef.current.duration);
-            }
-          }}
-          onEnded={() => setIsPlaying(false)}
           onClick={handleVideoClick}
           playsInline
         />
 
-        {/* Watermark overlay (only if watermark module is enabled) */}
+        {/* Slot 1 — visible when activeSlot === 1 */}
+        <video
+          ref={slot1Ref}
+          className="max-w-full max-h-full object-contain"
+          style={{
+            filter: activeSlot === 1 ? cssFilterStyle : undefined,
+            transform: activeSlot === 1 ? cssTransformStyle : undefined,
+            display: activeSlot === 1 ? undefined : 'none',
+          }}
+          onClick={handleVideoClick}
+          playsInline
+        />
+
+        {/* Watermark overlay (watermark module only) */}
         {isWatermarkEnabled && (
           <WatermarkOverlay
             videoElement={videoElement}
@@ -228,7 +298,7 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
           />
         )}
 
-        {/* Text overlay (only if text module is enabled) */}
+        {/* Text overlay (text module only) */}
         {isTextEnabled && (
           <TextOverlay
             videoElement={videoElement}
@@ -236,7 +306,7 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
           />
         )}
 
-        {/* PiP overlay (only if filters module is enabled and PiP layers exist) */}
+        {/* PiP overlay (filters module only) */}
         {isFiltersEnabled && pipLayers.length > 0 && videoInfo && containerElement && (
           <PiPOverlay
             containerWidth={containerElement.clientWidth}
@@ -247,7 +317,7 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
           />
         )}
 
-        {/* Crop overlay (only if filters module is enabled and crop is active) */}
+        {/* Crop overlay (filters module only) */}
         {isFiltersEnabled && transform.crop && videoInfo && containerElement && (
           <CropOverlay
             containerWidth={containerElement.clientWidth}
@@ -261,7 +331,6 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
       {/* Playback controls (hidden when timeline is active — timeline has its own playhead) */}
       {!isTrimEnabled && (
         <div className="flex items-center gap-3 mt-3 px-1">
-          {/* Play/Pause button */}
           <button
             onClick={handleVideoClick}
             className="w-8 h-8 flex items-center justify-center text-text-primary
@@ -271,7 +340,6 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
             {isPlaying ? '⏸' : '▶'}
           </button>
 
-          {/* Progress bar */}
           <div
             ref={progressRef}
             className="flex-1 h-5 flex items-center cursor-pointer group"
@@ -290,12 +358,10 @@ export function VideoPlayer({ videoRef: externalVideoRef }: VideoPlayerProps) {
             </div>
           </div>
 
-          {/* Time display */}
           <span className="text-xs text-text-secondary font-mono whitespace-nowrap flex-shrink-0">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
 
-          {/* Aspect ratio badge */}
           {aspectLabel && (
             <span className="text-xs text-text-secondary bg-bg-component px-2 py-0.5 rounded flex-shrink-0">
               {aspectLabel}

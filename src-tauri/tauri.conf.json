@@ -23,7 +23,11 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
     }
   },
   "bundle": {
@@ -80,12 +84,7 @@
       "open": true
     },
     "updater": {
-      "active": true,
-      "dialog": true,
-      "pubkey": "",
-      "endpoints": [
-        "https://github.com/YOUR_ORG/watermark-tool/releases/latest/download/latest.json"
-      ]
+      "active": false
     }
   }
 }

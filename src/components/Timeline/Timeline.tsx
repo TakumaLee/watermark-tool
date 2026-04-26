@@ -2,11 +2,11 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useVideoStore } from '../../stores/videoStore';
 import { useModuleStore } from '../../stores/moduleStore';
-import { formatTime } from '../../utils/formatTime';
 import { TimelineClipItem } from './TimelineClipItem';
 import { TimelineRuler } from './TimelineRuler';
 import { TransitionIcon } from './TransitionIcon';
-// import { TIMELINE_ZOOM } from '../../types';
+import { TimelineToolbar } from './TimelineToolbar';
+import { computeDropIndex } from '../../viewmodels/timelineLogic';
 
 interface TimelineProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -16,43 +16,46 @@ export function Timeline({ videoRef }: TimelineProps) {
   const {
     clips,
     playheadTime,
-    selectedClipId,
+    activeClipIndex,
     zoom,
     scrollOffset,
     totalDuration,
+    selectedClipId,
     setPlayheadTime,
     selectClip,
-    splitAtPlayhead,
-    deleteClip,
     reorderClip,
     zoomIn,
     zoomOut,
     setScrollOffset,
   } = useTimelineStore();
 
+  const slotVersion = useTimelineStore((s) => s.slotVersion);
   const { videoInfo } = useVideoStore();
   const isFiltersEnabled = useModuleStore((s) => s.isEnabled('filters'));
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null);
+  const dropIndicatorRef = useRef<number | null>(null);
 
   const timelineWidth = totalDuration * zoom;
   const playheadX = playheadTime * zoom - scrollOffset;
 
-  // Sync playhead → video currentTime
+  // Sync playhead → video currentTime for structural changes (trim/split) while paused.
+  // Guard !video.paused prevents feedback loop: during playback, video drives playhead,
+  // not the other way around. Direct seeking is handled in track-click / drag handlers.
   useEffect(() => {
-    if (!videoRef.current || isDraggingPlayhead) return;
-    // Map timeline playhead to the correct clip's source time
+    const video = videoRef.current;
+    if (!video || isDraggingPlayhead || activeClipIndex >= 0) return;
+    if (!video.paused) return;
     const clipInfo = getClipAtTime(clips, playheadTime);
     if (clipInfo) {
       const sourceTime = clipInfo.clip.startTime + clipInfo.offsetInClip;
-      const video = videoRef.current;
       if (Math.abs(video.currentTime - sourceTime) > 0.05) {
         video.currentTime = sourceTime;
       }
     }
-  }, [playheadTime, clips, isDraggingPlayhead]);
+  }, [playheadTime, clips, isDraggingPlayhead, activeClipIndex]);
 
   // Sync video currentTime → playhead (during playback)
   useEffect(() => {
@@ -61,32 +64,62 @@ export function Timeline({ videoRef }: TimelineProps) {
 
     const handleTimeUpdate = () => {
       if (isDraggingPlayhead) return;
-      // Find which clip corresponds to the current video time and compute timeline-time
       const currentVideoTime = video.currentTime;
+      const { clips: currentClips, activeClipIndex: activeIdx } = useTimelineStore.getState();
+
       let timelineTime = 0;
-      for (const clip of clips) {
-        if (currentVideoTime >= clip.startTime && currentVideoTime < clip.endTime) {
-          timelineTime += currentVideoTime - clip.startTime;
-          break;
+      if (activeIdx >= 0 && activeIdx < currentClips.length) {
+        const activeClip = currentClips[activeIdx];
+        const clipTimelineStart = currentClips.slice(0, activeIdx).reduce((s, c) => s + c.duration, 0);
+        timelineTime = clipTimelineStart + Math.max(0, currentVideoTime - activeClip.startTime);
+      } else {
+        // Single source: map source time to timeline time.
+        // If currentVideoTime falls in a gap between clips, stop accumulating —
+        // useClipPlayback will seek past the gap on the next timeupdate.
+        for (const clip of currentClips) {
+          if (currentVideoTime < clip.startTime) break; // in a gap before this clip
+          if (currentVideoTime < clip.endTime) {
+            timelineTime += currentVideoTime - clip.startTime;
+            break;
+          }
+          timelineTime += clip.duration;
         }
-        timelineTime += clip.duration;
       }
-      // Only update if different enough to avoid feedback loop
-      const { playheadTime: currentPlayhead } = useTimelineStore.getState();
+
+      const { playheadTime: currentPlayhead, scrollOffset: curScroll, zoom: curZoom } = useTimelineStore.getState();
       if (Math.abs(timelineTime - currentPlayhead) > 0.03) {
         useTimelineStore.getState().setPlayheadTime(timelineTime);
+      }
+
+      // Auto-scroll: keep playhead visible (scroll when it reaches the right 10% of viewport)
+      const containerWidth = containerRef.current?.clientWidth ?? 800;
+      const newPlayheadX = timelineTime * curZoom - curScroll;
+      if (newPlayheadX > containerWidth - containerWidth * 0.1) {
+        useTimelineStore.getState().setScrollOffset(
+          Math.max(0, timelineTime * curZoom - containerWidth * 0.7),
+        );
       }
     };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     return () => video.removeEventListener('timeupdate', handleTimeUpdate);
-  }, [clips, isDraggingPlayhead]);
+  }, [clips, isDraggingPlayhead, slotVersion]);
 
-  // Playhead drag handler
+  // Playhead drag
   const handlePlayheadMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingPlayhead(true);
+
+    // Seek video directly — can't rely on the sync effect while playing
+    const seekVideo = (time: number) => {
+      const video = videoRef.current;
+      if (!video) return;
+      const { activeClipIndex: ai, clips: cc } = useTimelineStore.getState();
+      if (ai >= 0) return; // multi-source: useTimelinePreview reacts to setPlayheadTime
+      const info = getClipAtTime(cc, time);
+      if (info) video.currentTime = info.clip.startTime + info.offsetInClip;
+    };
 
     const handleMouseMove = (me: MouseEvent) => {
       if (!trackRef.current) return;
@@ -94,6 +127,7 @@ export function Timeline({ videoRef }: TimelineProps) {
       const x = me.clientX - rect.left + scrollOffset;
       const time = Math.max(0, Math.min(x / zoom, totalDuration));
       setPlayheadTime(time);
+      seekVideo(time);
     };
 
     const handleMouseUp = () => {
@@ -113,42 +147,64 @@ export function Timeline({ videoRef }: TimelineProps) {
     const x = e.clientX - rect.left + scrollOffset;
     const time = Math.max(0, Math.min(x / zoom, totalDuration));
     setPlayheadTime(time);
+    // Seek video directly — sync effect skips during playback
+    const video = videoRef.current;
+    if (video) {
+      const { activeClipIndex: ai, clips: cc } = useTimelineStore.getState();
+      if (ai < 0) {
+        const info = getClipAtTime(cc, time);
+        if (info) video.currentTime = info.clip.startTime + info.offsetInClip;
+      }
+    }
   }, [zoom, scrollOffset, totalDuration, setPlayheadTime]);
 
-  // Scroll handler
+  // Scroll / zoom
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
-      // Zoom
       e.preventDefault();
-      if (e.deltaY < 0) {
-        zoomIn();
-      } else {
-        zoomOut();
-      }
+      if (e.deltaY < 0) zoomIn(); else zoomOut();
     } else {
-      // Horizontal scroll
       setScrollOffset(scrollOffset + e.deltaX + e.deltaY);
     }
   }, [scrollOffset, zoomIn, zoomOut, setScrollOffset]);
 
-  // Drag & drop reorder
-  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    setDragOverIndex(index);
-  }, []);
+  // Mouse-based clip reorder (replaces unreliable HTML5 drag API in Tauri WebKit)
+  const handleClipMoveStart = useCallback((clipId: string, startX: number) => {
+    let hasDragged = false;
 
-  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    const clipId = e.dataTransfer.getData('text/plain');
-    if (clipId) {
-      reorderClip(clipId, dropIndex);
-    }
-    setDragOverIndex(null);
+    const handleMouseMove = (me: MouseEvent) => {
+      if (!hasDragged && Math.abs(me.clientX - startX) < 4) return;
+      hasDragged = true;
+      if (!trackRef.current) return;
+
+      const { clips: cc, zoom: z, scrollOffset: so } = useTimelineStore.getState();
+      const rect = trackRef.current.getBoundingClientRect();
+      const x = me.clientX - rect.left + so;
+      const targetIndex = computeDropIndex(cc, z, x);
+      dropIndicatorRef.current = targetIndex;
+      setDropIndicatorIndex(targetIndex);
+    };
+
+    const handleMouseUp = () => {
+      if (hasDragged && dropIndicatorRef.current !== null) {
+        reorderClip(clipId, dropIndicatorRef.current);
+      }
+      setDropIndicatorIndex(null);
+      dropIndicatorRef.current = null;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
   }, [reorderClip]);
 
-  const handleDragEnd = useCallback(() => {
-    setDragOverIndex(null);
-  }, []);
+  // Compute drop indicator X position on the track
+  const dropIndicatorX = dropIndicatorIndex !== null
+    ? (dropIndicatorIndex < clips.length
+        ? clips.slice(0, dropIndicatorIndex).reduce((s, c) => s + c.duration * zoom, 0)
+        : clips.reduce((s, c) => s + c.duration * zoom, 0))
+    : null;
 
   if (clips.length === 0 && !videoInfo) {
     return (
@@ -160,69 +216,13 @@ export function Timeline({ videoRef }: TimelineProps) {
 
   return (
     <div className="flex-shrink-0 border-t border-border bg-bg-secondary select-none">
-      {/* Toolbar */}
-      <div className="h-8 border-b border-border/50 px-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-text-secondary">時間軸</span>
-          <span className="text-[10px] text-text-secondary/60 font-mono">
-            {formatTime(playheadTime)} / {formatTime(totalDuration)}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {/* Split button */}
-          <button
-            onClick={splitAtPlayhead}
-            disabled={clips.length === 0}
-            className="px-2 py-0.5 text-[11px] text-text-secondary border border-border rounded
-                       hover:text-accent hover:border-accent transition-colors
-                       disabled:opacity-30 disabled:cursor-not-allowed"
-            title="在播放頭位置分割 (S)"
-          >
-            ✂️ 分割
-          </button>
-          {/* Delete clip */}
-          <button
-            onClick={() => selectedClipId && deleteClip(selectedClipId)}
-            disabled={!selectedClipId}
-            className="px-2 py-0.5 text-[11px] text-text-secondary border border-border rounded
-                       hover:text-error hover:border-error transition-colors
-                       disabled:opacity-30 disabled:cursor-not-allowed"
-            title="刪除選取的片段"
-          >
-            🗑 刪除
-          </button>
-          {/* Zoom controls */}
-          <div className="flex items-center gap-0.5 ml-2">
-            <button
-              onClick={zoomOut}
-              className="w-5 h-5 flex items-center justify-center text-text-secondary
-                         hover:text-text-primary transition-colors text-[11px]"
-              title="縮小"
-            >
-              −
-            </button>
-            <span className="text-[10px] text-text-secondary/60 w-8 text-center font-mono">
-              {Math.round(zoom)}
-            </span>
-            <button
-              onClick={zoomIn}
-              className="w-5 h-5 flex items-center justify-center text-text-secondary
-                         hover:text-text-primary transition-colors text-[11px]"
-              title="放大"
-            >
-              +
-            </button>
-          </div>
-        </div>
-      </div>
+      <TimelineToolbar showAddVideo={true} />
 
-      {/* Timeline track area */}
       <div
         ref={containerRef}
         className="h-[100px] overflow-hidden relative"
         onWheel={handleWheel}
       >
-        {/* Ruler */}
         <TimelineRuler
           zoom={zoom}
           scrollOffset={scrollOffset}
@@ -230,7 +230,6 @@ export function Timeline({ videoRef }: TimelineProps) {
           containerWidth={containerRef.current?.clientWidth ?? 800}
         />
 
-        {/* Track */}
         <div
           ref={trackRef}
           className="absolute top-5 left-0 right-0 bottom-0 cursor-pointer"
@@ -238,44 +237,42 @@ export function Timeline({ videoRef }: TimelineProps) {
         >
           {/* Clips */}
           <div
-            className="absolute top-2 bottom-2 flex gap-0.5"
+            className="absolute top-2 bottom-2"
             style={{ left: -scrollOffset, width: timelineWidth }}
           >
             {clips.map((clip, index) => {
               const clipX = clips.slice(0, index).reduce((sum, c) => sum + c.duration * zoom, 0);
-
               return (
                 <div
                   key={clip.id}
                   style={{ position: 'absolute', left: clipX, width: clip.duration * zoom }}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDrop={(e) => handleDrop(e, index)}
                 >
-                  {dragOverIndex === index && (
-                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent z-10" />
-                  )}
                   <TimelineClipItem
                     clip={clip}
                     isSelected={selectedClipId === clip.id}
                     zoom={zoom}
                     onSelect={() => selectClip(clip.id)}
-                    onDragEnd={handleDragEnd}
+                    onMoveStart={handleClipMoveStart}
                   />
-                  {/* Transition icon between clips */}
                   {isFiltersEnabled && index < clips.length - 1 && (
                     <div
                       className="absolute top-1/2 -translate-y-1/2 z-30"
                       style={{ right: -12 }}
                     >
-                      <TransitionIcon
-                        fromClipId={clip.id}
-                        toClipId={clips[index + 1].id}
-                      />
+                      <TransitionIcon fromClipId={clip.id} toClipId={clips[index + 1].id} />
                     </div>
                   )}
                 </div>
               );
             })}
+
+            {/* Drag-reorder indicator */}
+            {dropIndicatorX !== null && (
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-accent z-20 pointer-events-none"
+                style={{ left: dropIndicatorX }}
+              />
+            )}
           </div>
 
           {/* Playhead */}
@@ -285,7 +282,6 @@ export function Timeline({ videoRef }: TimelineProps) {
               style={{ left: playheadX - 6, width: 12 }}
               onMouseDown={handlePlayheadMouseDown}
             >
-              {/* Playhead head (triangle) */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2">
                 <div
                   className="w-0 h-0"
@@ -296,7 +292,6 @@ export function Timeline({ videoRef }: TimelineProps) {
                   }}
                 />
               </div>
-              {/* Playhead line */}
               <div className="absolute top-1.5 left-1/2 -translate-x-[0.5px] bottom-0 w-px bg-accent" />
             </div>
           )}
@@ -306,7 +301,6 @@ export function Timeline({ videoRef }: TimelineProps) {
   );
 }
 
-/** Find which clip the playhead is in, given timeline-time */
 function getClipAtTime(clips: { startTime: number; endTime: number; duration: number }[], timelineTime: number) {
   let accumulated = 0;
   for (const clip of clips) {
@@ -315,7 +309,6 @@ function getClipAtTime(clips: { startTime: number; endTime: number; duration: nu
     }
     accumulated += clip.duration;
   }
-  // If past the end, return last clip at its end
   if (clips.length > 0) {
     const last = clips[clips.length - 1];
     return { clip: last, offsetInClip: last.duration };
