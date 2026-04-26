@@ -1,4 +1,6 @@
 import { useModuleStore } from '../../stores/moduleStore';
+import { useUIStore, FONT_SIZE_MAP } from '../../stores/uiStore';
+import type { FontSize } from '../../stores/uiStore';
 import { ALL_MODULES } from '../../types';
 import type { ModuleId } from '../../types';
 
@@ -9,6 +11,17 @@ interface ModuleSettingsProps {
 
 export function ModuleSettings({ isOpen, onClose }: ModuleSettingsProps) {
   const { enabledModules, toggle } = useModuleStore();
+  const { fontSize, setFontSize } = useUIStore();
+
+  const fontSizeOptions: { value: FontSize; label: string }[] = [
+    { value: 'xs',   label: '最小' },
+    { value: 'sm',   label: '次小' },
+    { value: 'md',   label: '小' },
+    { value: 'lg',   label: '中' },
+    { value: 'xl',   label: '大' },
+    { value: 'xxl',  label: '次大' },
+    { value: 'xxxl', label: '最大' },
+  ];
 
   if (!isOpen) return null;
 
@@ -45,6 +58,31 @@ export function ModuleSettings({ isOpen, onClose }: ModuleSettingsProps) {
 
         {/* Module list */}
         <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
+          {/* UI Settings */}
+          <div>
+            <h3 className="text-[11px] font-medium text-text-secondary uppercase tracking-wider mb-2">
+              介面設定
+            </h3>
+            <div className="p-3 rounded-lg bg-bg-primary/50 border border-border/50 space-y-2">
+              <span className="text-sm text-text-primary">字體大小</span>
+              <div className="flex gap-1 flex-wrap">
+                {fontSizeOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setFontSize(opt.value)}
+                    className={`px-2.5 py-1 rounded text-xs transition-colors duration-150 ${
+                      fontSize === opt.value
+                        ? 'bg-accent text-white'
+                        : 'bg-bg-component text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <p className="text-xs text-text-secondary mb-3">
             開關功能模組，UI 會即時顯示或隱藏對應的面板和工具。
           </p>

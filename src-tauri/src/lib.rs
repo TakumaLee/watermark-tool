@@ -1,6 +1,38 @@
 mod commands;
 mod ffmpeg;
 
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::{Emitter, Manager};
+
+fn build_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let settings_item = MenuItem::with_id(app, "open-settings", "Settings...", true, Some("CmdOrCtrl+,"))?;
+
+    #[cfg(target_os = "macos")]
+    {
+        let app_submenu = Submenu::with_items(
+            app,
+            "watermark-tool",
+            true,
+            &[
+                &settings_item,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::hide(app, None)?,
+                &PredefinedMenuItem::hide_others(app, None)?,
+                &PredefinedMenuItem::show_all(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::quit(app, None)?,
+            ],
+        )?;
+        return Menu::with_items(app, &[&app_submenu]);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let tools_submenu = Submenu::with_items(app, "工具", true, &[&settings_item])?;
+        return Menu::with_items(app, &[&tools_submenu]);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -16,6 +48,18 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Build and set native menu
+            let menu = build_menu(app.handle())?;
+            app.set_menu(menu)?;
+
+            // Handle menu events
+            app.on_menu_event(|app_handle, event| {
+                if event.id() == "open-settings" {
+                    let _ = app_handle.emit("menu:open-settings", ());
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { VideoPreview } from './components/VideoPreview';
 import { WatermarkPanel } from './components/WatermarkPanel';
 import { BottomToolbar } from './components/BottomToolbar';
@@ -14,16 +15,31 @@ import { ExportPanel } from './components/ExportPanel';
 import { ExportQueue } from './components/ExportQueue';
 import { AIPanel } from './components/AIPanel';
 import { useModuleStore } from './stores/moduleStore';
+import { useUIStore } from './stores/uiStore';
 
 function App() {
   const { isLoaded, hasCompletedSetup, isEnabled, loadConfig } = useModuleStore();
   const [showModuleSettings, setShowModuleSettings] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const applyFontSize = useUIStore((s) => s.applyFontSize);
 
   // Load module config on mount
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+
+  // Apply persisted font size on mount
+  useEffect(() => {
+    applyFontSize();
+  }, [applyFontSize]);
+
+  // Listen for native menu "Settings..." click
+  useEffect(() => {
+    const unlisten = listen('menu:open-settings', () => {
+      setShowModuleSettings(true);
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, []);
 
   // Show loading while config loads
   if (!isLoaded) {

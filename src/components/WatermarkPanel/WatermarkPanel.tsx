@@ -10,7 +10,6 @@ export function WatermarkPanel() {
   const { watermarks, selectedId, slotCount, addSlot, clearAll } = useWatermarkStore();
   const { importFromDialog } = useWatermarkImport();
 
-  const hasVideo = !!videoInfo;
   const emptySlotCount = Math.max(0, slotCount - watermarks.length);
 
   return (
@@ -31,9 +30,9 @@ export function WatermarkPanel() {
 
       {/* Panel content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {hasVideo ? (
-          <div className="space-y-4">
-            {/* Video info card */}
+        <div className="space-y-4">
+          {/* Video info card — only shown when a video is loaded */}
+          {videoInfo && (
             <div className="bg-bg-component/50 rounded-lg p-3 space-y-2">
               <h3 className="text-xs font-medium text-text-secondary uppercase tracking-wider">
                 影片資訊
@@ -66,59 +65,55 @@ export function WatermarkPanel() {
                 </p>
               )}
             </div>
+          )}
 
-            {/* Import button */}
-            <button
-              onClick={importFromDialog}
-              className="w-full py-2.5 border border-dashed border-border rounded-lg
-                         text-text-secondary text-sm hover:border-accent hover:text-accent
-                         transition-colors duration-150"
-            >
-              + 匯入浮水印
-            </button>
+          {/* Import button */}
+          <button
+            onClick={importFromDialog}
+            className="w-full py-2.5 border border-dashed border-border rounded-lg
+                       text-text-secondary text-sm hover:border-accent hover:text-accent
+                       transition-colors duration-150"
+          >
+            + 匯入浮水印
+          </button>
 
-            {/* Watermark cards */}
-            <div className="space-y-3">
-              {watermarks.map((wm, idx) => (
-                <WatermarkCard
-                  key={wm.id}
-                  watermark={wm}
-                  index={idx}
-                  isSelected={selectedId === wm.id}
-                />
-              ))}
+          {/* Watermark cards */}
+          <div className="space-y-3">
+            {watermarks.map((wm, idx) => (
+              <WatermarkCard
+                key={wm.id}
+                watermark={wm}
+                index={idx}
+                isSelected={selectedId === wm.id}
+              />
+            ))}
 
-              {/* Empty slots */}
-              {Array.from({ length: emptySlotCount }).map((_, i) => (
-                <div
-                  key={`empty-${i}`}
-                  className="border border-border/50 rounded-lg p-3 opacity-40 cursor-pointer
-                             hover:opacity-60 hover:border-accent/30 transition-all"
-                  onClick={importFromDialog}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-bg-component rounded flex items-center justify-center text-xs text-text-secondary">
-                      #{watermarks.length + i + 1}
-                    </div>
-                    <span className="text-xs text-text-secondary">點擊匯入浮水印</span>
+            {/* Empty slots */}
+            {Array.from({ length: emptySlotCount }).map((_, i) => (
+              <div
+                key={`empty-${i}`}
+                className="border border-border/50 rounded-lg p-3 opacity-40 cursor-pointer
+                           hover:opacity-60 hover:border-accent/30 transition-all"
+                onClick={importFromDialog}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-bg-component rounded flex items-center justify-center text-xs text-text-secondary">
+                    #{watermarks.length + i + 1}
                   </div>
+                  <span className="text-xs text-text-secondary">點擊匯入浮水印</span>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
+          </div>
 
-            {/* Add more slots button */}
-            <button
-              onClick={addSlot}
-              className="w-full py-2 text-xs text-text-secondary hover:text-accent transition-colors"
-            >
-              + 新增浮水印欄位
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-text-secondary text-sm opacity-60">
-            <p>請先匯入影片</p>
-          </div>
-        )}
+          {/* Add more slots button */}
+          <button
+            onClick={addSlot}
+            className="w-full py-2 text-xs text-text-secondary hover:text-accent transition-colors"
+          >
+            + 新增浮水印欄位
+          </button>
+        </div>
       </div>
     </div>
   );

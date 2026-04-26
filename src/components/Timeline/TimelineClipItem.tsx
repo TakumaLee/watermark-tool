@@ -8,17 +8,16 @@ interface TimelineClipItemProps {
   isSelected: boolean;
   zoom: number;
   onSelect: () => void;
-  onDragEnd: () => void;
+  onMoveStart: (clipId: string, startX: number) => void;
 }
 
-export function TimelineClipItem({ clip, isSelected, zoom, onSelect, onDragEnd }: TimelineClipItemProps) {
+export function TimelineClipItem({ clip, isSelected, zoom, onSelect, onMoveStart }: TimelineClipItemProps) {
   const { trimClip } = useTimelineStore();
   const [isDraggingTrim, setIsDraggingTrim] = useState<'start' | 'end' | null>(null);
 
   const clipWidth = clip.duration * zoom;
-  const minClipWidth = 20; // minimum display width in px
+  const minClipWidth = 20;
 
-  // Handle trim drag on clip edges
   const handleTrimMouseDown = useCallback(
     (e: React.MouseEvent, edge: 'start' | 'end') => {
       e.preventDefault();
@@ -28,17 +27,17 @@ export function TimelineClipItem({ clip, isSelected, zoom, onSelect, onDragEnd }
       const startX = e.clientX;
       const originalStart = clip.startTime;
       const originalEnd = clip.endTime;
-      const minDuration = 0.1; // minimum clip duration in seconds
+      const minDuration = 0.1;
 
       const handleMouseMove = (me: MouseEvent) => {
-        const deltaX = me.clientX - startX;
-        const deltaTime = deltaX / zoom;
-
+        const deltaTime = (me.clientX - startX) / zoom;
         if (edge === 'start') {
-          const newStart = Math.max(0, Math.min(originalEnd - minDuration, originalStart + deltaTime));
+          // Constrain to [sourceStart, currentEnd - minDuration]
+          const newStart = Math.max(clip.sourceStart, Math.min(originalEnd - minDuration, originalStart + deltaTime));
           trimClip(clip.id, newStart, originalEnd);
         } else {
-          const newEnd = Math.max(originalStart + minDuration, originalEnd + deltaTime);
+          // Constrain to [currentStart + minDuration, sourceEnd]
+          const newEnd = Math.min(clip.sourceEnd, Math.max(originalStart + minDuration, originalEnd + deltaTime));
           trimClip(clip.id, originalStart, newEnd);
         }
       };
@@ -55,34 +54,24 @@ export function TimelineClipItem({ clip, isSelected, zoom, onSelect, onDragEnd }
     [clip, zoom, trimClip]
   );
 
-  // Drag & drop for reorder
-  const handleDragStart = useCallback(
-    (e: React.DragEvent) => {
-      e.dataTransfer.setData('text/plain', clip.id);
-      e.dataTransfer.effectAllowed = 'move';
-    },
-    [clip.id]
-  );
-
   return (
     <div
-      className={`h-full rounded relative group cursor-pointer overflow-hidden
+      className={`h-full rounded relative group cursor-grab overflow-hidden
         ${isSelected
           ? 'bg-accent/30 border border-accent/60'
           : 'bg-bg-component/80 border border-border/40 hover:border-accent/30'
         }
-        ${isDraggingTrim ? 'z-10' : ''}
+        ${isDraggingTrim ? 'z-10 cursor-ew-resize' : ''}
       `}
       style={{ minWidth: minClipWidth }}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
       }}
-      draggable
-      onDragStart={handleDragStart}
-      onDragEnd={onDragEnd}
+      onMouseDown={(e) => {
+        onMoveStart(clip.id, e.clientX);
+      }}
     >
-      {/* Clip content */}
       <div className="flex items-center h-full px-2 min-w-0">
         {clipWidth > 60 && (
           <div className="min-w-0 flex-1">

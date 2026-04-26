@@ -6,14 +6,18 @@ export interface TimelineClip {
   sourcePath: string;
   /** Source video URL for preview */
   sourceUrl: string;
-  /** Start time in the source video (seconds) */
+  /** Current trim in-point in the source video (seconds) */
   startTime: number;
-  /** End time in the source video (seconds) */
+  /** Current trim out-point in the source video (seconds) */
   endTime: number;
   /** Duration of the clip (endTime - startTime) */
   duration: number;
   /** Display name */
   name: string;
+  /** Earliest startTime this clip can be trimmed to (immutable source bound) */
+  sourceStart: number;
+  /** Latest endTime this clip can be trimmed to (immutable source bound) */
+  sourceEnd: number;
 }
 
 /** Timeline state */

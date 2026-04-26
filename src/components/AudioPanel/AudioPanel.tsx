@@ -34,8 +34,6 @@ export function AudioPanel() {
     clearAll,
   } = useAudioStore();
 
-  const hasVideo = !!videoInfo;
-
   // Extract waveform from video
   const extractMainWaveform = useCallback(async () => {
     if (!videoPath) return;
@@ -123,15 +121,17 @@ export function AudioPanel() {
 
       {/* Panel content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {hasVideo ? (
-          <div className="space-y-4">
-            {/* Waveform extraction */}
+        <div className="space-y-4">
+            {/* Waveform extraction — requires a loaded video */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-text-secondary">音訊波形</span>
                 <button
                   onClick={extractMainWaveform}
-                  className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+                  disabled={!videoPath}
+                  className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors
+                             disabled:opacity-30 disabled:cursor-not-allowed"
+                  title={!videoPath ? '請先匯入影片' : undefined}
                 >
                   {mainWaveform ? '重新提取' : '提取波形'}
                 </button>
@@ -287,12 +287,7 @@ export function AudioPanel() {
                 </div>
               )}
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-text-secondary text-sm opacity-60">
-            <p>請先匯入影片</p>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

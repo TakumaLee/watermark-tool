@@ -1,13 +1,9 @@
-import { useVideoStore } from '../../stores/videoStore';
 import { useTextStore } from '../../stores/textStore';
 import { TextCard } from './TextCard';
 import { SubtitlePanel } from './SubtitlePanel';
 
 export function TextPanel() {
-  const { videoInfo } = useVideoStore();
   const { textItems, selectedTextId, addTextItem, clearAllText } = useTextStore();
-
-  const hasVideo = !!videoInfo;
 
   return (
     <div className="w-[320px] flex-shrink-0 bg-bg-secondary border-l border-border flex flex-col h-full">
@@ -27,41 +23,35 @@ export function TextPanel() {
 
       {/* Panel content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {hasVideo ? (
-          <div className="space-y-4">
-            {/* Add text button */}
-            <button
-              onClick={() => addTextItem()}
-              className="w-full py-2.5 border border-dashed border-border rounded-lg
-                         text-text-secondary text-sm hover:border-blue-400 hover:text-blue-400
-                         transition-colors duration-150"
-            >
-              + 新增文字疊加
-            </button>
+        <div className="space-y-4">
+          {/* Add text button */}
+          <button
+            onClick={() => addTextItem()}
+            className="w-full py-2.5 border border-dashed border-border rounded-lg
+                       text-text-secondary text-sm hover:border-blue-400 hover:text-blue-400
+                       transition-colors duration-150"
+          >
+            + 新增文字疊加
+          </button>
 
-            {/* Text overlay cards */}
-            {textItems.length > 0 && (
-              <div className="space-y-3">
-                {textItems.map((item) => (
-                  <TextCard
-                    key={item.id}
-                    item={item}
-                    isSelected={selectedTextId === item.id}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Divider */}
-            <div className="border-t border-border/50 pt-4">
-              <SubtitlePanel />
+          {/* Text overlay cards */}
+          {textItems.length > 0 && (
+            <div className="space-y-3">
+              {textItems.map((item) => (
+                <TextCard
+                  key={item.id}
+                  item={item}
+                  isSelected={selectedTextId === item.id}
+                />
+              ))}
             </div>
+          )}
+
+          {/* Divider */}
+          <div className="border-t border-border/50 pt-4">
+            <SubtitlePanel />
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-text-secondary text-sm opacity-60">
-            <p>請先匯入影片</p>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

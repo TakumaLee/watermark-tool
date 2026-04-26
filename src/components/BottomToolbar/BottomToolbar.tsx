@@ -34,37 +34,67 @@ export function BottomToolbar() {
 
   const hasVideo = !!videoUrl;
   const hasWatermarks = watermarks.length > 0;
-  const canOutput = hasVideo && hasWatermarks && renderState.status !== 'rendering';
-  const canExportTimeline = hasVideo && clips.length > 0 && !isTimelineProcessing;
   const isBatchProcessing = batchState.status === 'processing';
+
+  // ── Single export button: picks the highest-priority enabled module ──────
+  // Priority: trim (剪輯) > watermark (浮水印) > filters (效果)
+  const exportConfig = (() => {
+    if (isTrimEnabled) {
+      const processing = isTimelineProcessing;
+      return {
+        label: processing
+          ? `🎬 匯出中 ${Math.round(timelineProgress * 100)}%`
+          : '🎬 匯出剪輯',
+        action: exportTimeline,
+        disabled: !hasVideo || clips.length === 0 || processing,
+        title: !hasVideo ? '請先匯入影片' : clips.length === 0 ? '時間軸沒有片段' : '匯出時間軸剪輯',
+      };
+    }
+    if (isWatermarkEnabled) {
+      const canOutput = hasVideo && hasWatermarks && renderState.status !== 'rendering';
+      return {
+        label: '▶ 開始輸出',
+        action: () => setShowOutputDialog(true),
+        disabled: !canOutput,
+        title: !hasVideo ? '請先匯入影片' : !hasWatermarks ? '請先新增浮水印' : '輸出含浮水印的影片',
+      };
+    }
+    if (isFiltersEnabled) {
+      const processing = isEffectsProcessing;
+      return {
+        label: processing
+          ? `⚡ 輸出中 ${Math.round(effectsProgress * 100)}%`
+          : '⚡ 效果輸出',
+        action: exportWithEffects,
+        disabled: !hasVideo || processing,
+        title: !hasVideo ? '請先匯入影片' : '輸出含效果影片',
+      };
+    }
+    return null; // no export module enabled
+  })();
+
+  // Active progress bar (trim takes priority over effects if both running)
+  const activeProgress = isTimelineProcessing
+    ? { value: timelineProgress, color: 'bg-accent' }
+    : isEffectsProcessing
+    ? { value: effectsProgress, color: 'bg-green-500' }
+    : null;
 
   return (
     <>
-      {/* Render progress bar (shows above toolbar when rendering) */}
       <RenderProgress />
 
-      {/* Effects export progress */}
-      {isEffectsProcessing && (
+      {activeProgress && (
         <div className="h-1 flex-shrink-0 bg-bg-primary">
           <div
-            className="h-full bg-green-500 transition-[width] duration-150"
-            style={{ width: `${effectsProgress * 100}%` }}
-          />
-        </div>
-      )}
-
-      {/* Timeline export progress */}
-      {isTimelineProcessing && (
-        <div className="h-1 flex-shrink-0 bg-bg-primary">
-          <div
-            className="h-full bg-accent transition-[width] duration-150"
-            style={{ width: `${timelineProgress * 100}%` }}
+            className={`h-full ${activeProgress.color} transition-[width] duration-150`}
+            style={{ width: `${activeProgress.value * 100}%` }}
           />
         </div>
       )}
 
       <div className="h-14 flex-shrink-0 border-t border-border bg-bg-secondary px-4 flex items-center justify-between">
-        {/* Left action buttons */}
+        {/* Left: import + module-specific helpers */}
         <div className="flex items-center gap-3">
           <button
             onClick={importFromDialog}
@@ -74,26 +104,25 @@ export function BottomToolbar() {
             📂 匯入影片
           </button>
 
-          {/* Watermark-specific buttons (only when watermark module is enabled) */}
           {isWatermarkEnabled && (
             <>
               <button
                 onClick={() => setShowPresetDialog(true)}
+                disabled={!hasWatermarks}
                 className="px-4 py-1.5 border border-border rounded-lg text-sm text-text-secondary
                            hover:border-accent hover:text-accent transition-colors duration-150
                            disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-text-secondary"
-                disabled={!hasWatermarks}
-                title="儲存或載入浮水印設定"
+                title={!hasWatermarks ? '請先新增浮水印' : '儲存或載入浮水印設定'}
               >
                 💾 儲存設定
               </button>
 
               <button
                 onClick={() => setShowBatchDialog(true)}
+                disabled={!hasWatermarks || isBatchProcessing}
                 className="px-4 py-1.5 border border-border rounded-lg text-sm text-text-secondary
                            hover:border-accent hover:text-accent transition-colors duration-150
                            disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-text-secondary"
-                disabled={!hasWatermarks || isBatchProcessing}
                 title={!hasWatermarks ? '請先新增浮水印' : '批次處理多個影片'}
               >
                 📋 批次處理
@@ -101,7 +130,6 @@ export function BottomToolbar() {
             </>
           )}
 
-          {/* Show batch progress indicator if running */}
           {(batchState.status === 'processing' || batchState.status === 'complete') && (
             <button
               onClick={() => setShowBatchProgress(true)}
@@ -113,76 +141,39 @@ export function BottomToolbar() {
           )}
         </div>
 
-        {/* Right primary actions */}
-        <div className="flex items-center gap-2">
-          {/* Effects export button (only when filters module is enabled) */}
-          {isFiltersEnabled && (
+        {/* Right: single unified export button */}
+        <div className="flex items-center">
+          {exportConfig ? (
             <button
-              onClick={exportWithEffects}
-              className="px-5 py-1.5 border border-green-500/50 hover:bg-green-500/10 text-green-400 rounded-lg text-sm font-medium
-                         transition-colors duration-150
-                         disabled:opacity-40 disabled:cursor-not-allowed"
-              disabled={!hasVideo || isEffectsProcessing}
-              title={!hasVideo ? '請先匯入影片' : isEffectsProcessing ? '正在輸出...' : '輸出含效果影片'}
-            >
-              {isEffectsProcessing ? `⚡ 輸出中 ${Math.round(effectsProgress * 100)}%` : '⚡ 效果輸出'}
-            </button>
-          )}
-
-          {/* Timeline export button (only when trim module is enabled) */}
-          {isTrimEnabled && (
-            <button
-              onClick={exportTimeline}
-              className="px-5 py-1.5 border border-accent/50 hover:bg-accent/10 text-accent rounded-lg text-sm font-medium
-                         transition-colors duration-150
-                         disabled:opacity-40 disabled:cursor-not-allowed"
-              disabled={!canExportTimeline}
-              title={!hasVideo ? '請先匯入影片' : clips.length === 0 ? '時間軸沒有片段' : '匯出時間軸'}
-            >
-              🎬 匯出剪輯
-            </button>
-          )}
-
-          {/* Watermark output button (only when watermark module is enabled) */}
-          {isWatermarkEnabled && (
-            <button
-              onClick={() => setShowOutputDialog(true)}
+              onClick={exportConfig.action}
+              disabled={exportConfig.disabled}
+              title={exportConfig.title}
               className="px-6 py-1.5 bg-accent hover:bg-accent/80 text-white rounded-lg text-sm font-medium
                          transition-colors duration-150
                          disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-accent"
-              disabled={!canOutput}
-              title={!hasVideo ? '請先匯入影片' : !hasWatermarks ? '請先新增浮水印' : '開始輸出'}
             >
-              ▶ 開始輸出
+              {exportConfig.label}
+            </button>
+          ) : (
+            <button
+              disabled
+              title="請在設定中啟用至少一個輸出模組"
+              className="px-6 py-1.5 bg-accent/30 text-white/50 rounded-lg text-sm font-medium cursor-not-allowed"
+            >
+              匯出
             </button>
           )}
         </div>
       </div>
 
-      {/* Dialogs */}
-      <OutputDialog
-        isOpen={showOutputDialog}
-        onClose={() => setShowOutputDialog(false)}
-      />
-
-      <PresetDialog
-        isOpen={showPresetDialog}
-        onClose={() => setShowPresetDialog(false)}
-      />
-
+      <OutputDialog isOpen={showOutputDialog} onClose={() => setShowOutputDialog(false)} />
+      <PresetDialog isOpen={showPresetDialog} onClose={() => setShowPresetDialog(false)} />
       <BatchDialog
         isOpen={showBatchDialog}
         onClose={() => setShowBatchDialog(false)}
-        onStarted={() => {
-          setShowBatchDialog(false);
-          setShowBatchProgress(true);
-        }}
+        onStarted={() => { setShowBatchDialog(false); setShowBatchProgress(true); }}
       />
-
-      <BatchProgressDialog
-        isOpen={showBatchProgress}
-        onClose={() => setShowBatchProgress(false)}
-      />
+      <BatchProgressDialog isOpen={showBatchProgress} onClose={() => setShowBatchProgress(false)} />
     </>
   );
 }

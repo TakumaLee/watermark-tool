@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useVideoStore } from '../stores/videoStore';
+import { useTimelineStore } from '../stores/timelineStore';
 import type { VideoInfo } from '../types';
 import { SUPPORTED_VIDEO_EXTENSIONS } from '../types';
 
@@ -12,6 +13,7 @@ import { SUPPORTED_VIDEO_EXTENSIONS } from '../types';
  */
 export function useVideoImport() {
   const { setVideo, setLoading, setError } = useVideoStore();
+  const addVideoToTimeline = useTimelineStore((s) => s.addVideoToTimeline);
 
   /**
    * Import a video from a file path (used by drag-and-drop).
@@ -65,5 +67,30 @@ export function useVideoImport() {
     }
   }, [importFromPath, setError]);
 
-  return { importFromPath, importFromDialog };
+  /** Append a video to the timeline without changing the main video in videoStore. */
+  const appendToTimeline = useCallback(async () => {
+    try {
+      const result = await open({
+        multiple: false,
+        filters: [{ name: '影片檔案', extensions: [...SUPPORTED_VIDEO_EXTENSIONS] }],
+      });
+      if (!result) return;
+
+      const filePath = result;
+      const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+      if (!SUPPORTED_VIDEO_EXTENSIONS.includes(ext as typeof SUPPORTED_VIDEO_EXTENSIONS[number])) {
+        setError(`不支援的影片格式: .${ext}`);
+        return;
+      }
+
+      const info = await invoke<VideoInfo>('probe_video', { path: filePath });
+      const assetUrl = convertFileSrc(filePath);
+      const name = filePath.split('/').pop()?.split('\\').pop() ?? 'Video';
+      addVideoToTimeline(filePath, assetUrl, info.duration, name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [addVideoToTimeline, setError]);
+
+  return { importFromPath, importFromDialog, appendToTimeline };
 }
