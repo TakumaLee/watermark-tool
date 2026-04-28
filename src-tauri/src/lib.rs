@@ -35,19 +35,29 @@ fn build_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Write panic info to Desktop so silent crashes are diagnosable on Windows
+    std::panic::set_hook(Box::new(|info| {
+        let msg = format!("{}", info);
+        let desktop = std::env::var("USERPROFILE")
+            .or_else(|_| std::env::var("HOME"))
+            .unwrap_or_default();
+        let log_path = std::path::PathBuf::from(desktop)
+            .join("Desktop")
+            .join("watermark-crash.log");
+        let _ = std::fs::write(&log_path, &msg);
+    }));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(log::LevelFilter::Info)
+                    .build(),
+            )?;
 
             // Build and set native menu
             let menu = build_menu(app.handle())?;
