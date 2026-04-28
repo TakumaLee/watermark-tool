@@ -58,7 +58,7 @@ pub fn trim_video(
 
     log::info!("Trim FFmpeg: ffmpeg {}", args.join(" "));
 
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(super::ffmpeg_path())
         .args(&args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -182,7 +182,7 @@ pub fn concat_videos(
 
     log::info!("Concat FFmpeg: ffmpeg {}", args.join(" "));
 
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(super::ffmpeg_path())
         .args(&args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())

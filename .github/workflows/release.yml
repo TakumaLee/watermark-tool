@@ -26,6 +26,16 @@ jobs:
             src-tauri/target/
           key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Download FFmpeg for Windows
+        run: |
+          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+          Invoke-WebRequest -Uri $url -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_extract
+          $dir = Get-ChildItem ffmpeg_extract -Directory | Select-Object -First 1
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries
+          Copy-Item "$($dir.FullName)/bin/ffmpeg.exe" "src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe"
+          Copy-Item "$($dir.FullName)/bin/ffprobe.exe" "src-tauri/binaries/ffprobe-x86_64-pc-windows-msvc.exe"
+
       - name: Install frontend dependencies
         run: npm ci
 

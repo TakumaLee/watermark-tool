@@ -11,7 +11,7 @@ pub fn probe_video_info(path: &str) -> Result<VideoInfo, String> {
     }
 
     // Get video stream info via ffprobe JSON output
-    let output = Command::new("ffprobe")
+    let output = Command::new(super::ffprobe_path())
         .args([
             "-v",
             "quiet",

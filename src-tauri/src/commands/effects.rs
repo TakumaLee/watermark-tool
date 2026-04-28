@@ -483,7 +483,7 @@ fn run_ffmpeg_with_progress(
     total_duration: f64,
     process_id: &str,
 ) -> Result<(), String> {
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(crate::ffmpeg::ffmpeg_path())
         .args(args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())

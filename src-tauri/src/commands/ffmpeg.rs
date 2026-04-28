@@ -169,7 +169,7 @@ fn run_ffmpeg_render(
 
     log::info!("Running FFmpeg: ffmpeg {}", args.join(" "));
 
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(crate::ffmpeg::ffmpeg_path())
         .args(&args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -481,7 +481,7 @@ fn run_ffmpeg_render_with_callback(
 
     log::info!("Batch FFmpeg: ffmpeg {}", args.join(" "));
 
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(crate::ffmpeg::ffmpeg_path())
         .args(&args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())

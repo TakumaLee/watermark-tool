@@ -83,7 +83,7 @@ pub fn extract_waveform(input_path: &str, target_peaks: usize) -> Result<Wavefor
         "pipe:1",
     ];
 
-    let output = Command::new("ffmpeg")
+    let output = Command::new(super::ffmpeg_path())
         .args(&args)
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -141,7 +141,7 @@ pub fn extract_waveform(input_path: &str, target_peaks: usize) -> Result<Wavefor
 
 /// Probe audio duration using ffprobe.
 fn probe_audio_duration(input_path: &str) -> Result<f64, String> {
-    let output = Command::new("ffprobe")
+    let output = Command::new(super::ffprobe_path())
         .args([
             "-v", "quiet",
             "-print_format", "json",

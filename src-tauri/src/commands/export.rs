@@ -124,7 +124,7 @@ pub async fn extract_thumbnail(
 
         log::info!("Running FFmpeg (thumbnail): ffmpeg {}", args.join(" "));
 
-        let child = Command::new("ffmpeg")
+        let child = Command::new(crate::ffmpeg::ffmpeg_path())
             .args(&args)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -243,7 +243,7 @@ fn run_gif_export(
     log::info!("Running FFmpeg (GIF pass 1): ffmpeg {}", pass1_args.join(" "));
 
     // Run pass 1 (palette generation — quick, just set 10% progress)
-    let child = Command::new("ffmpeg")
+    let child = Command::new(crate::ffmpeg::ffmpeg_path())
         .args(&pass1_args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -288,7 +288,7 @@ fn run_gif_export(
     let gif_duration = (end_time - config.start_time).max(1.0);
 
     // Run pass 2 with progress tracking
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(crate::ffmpeg::ffmpeg_path())
         .args(&pass2_args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -336,7 +336,7 @@ fn run_ffmpeg_with_progress_tracking(
     total_duration: f64,
     process_id: &str,
 ) -> Result<(), String> {
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(crate::ffmpeg::ffmpeg_path())
         .args(args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())

@@ -10,6 +10,30 @@ pub mod trim;
 
 use serde::{Deserialize, Serialize};
 
+pub fn ffmpeg_path() -> std::path::PathBuf {
+    resolve_bin("ffmpeg")
+}
+
+pub fn ffprobe_path() -> std::path::PathBuf {
+    resolve_bin("ffprobe")
+}
+
+fn resolve_bin(name: &str) -> std::path::PathBuf {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let bin = dir.join(if cfg!(windows) {
+                format!("{}.exe", name)
+            } else {
+                name.to_string()
+            });
+            if bin.exists() {
+                return bin;
+            }
+        }
+    }
+    std::path::PathBuf::from(name)
+}
+
 /// Video metadata returned by ffprobe
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VideoInfo {

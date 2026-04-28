@@ -30,7 +30,7 @@ pub async fn extract_audio_waveform(
 #[tauri::command]
 pub async fn probe_audio_duration(path: String) -> Result<f64, String> {
     tokio::task::spawn_blocking(move || {
-        let output = Command::new("ffprobe")
+        let output = Command::new(crate::ffmpeg::ffprobe_path())
             .args([
                 "-v", "quiet",
                 "-print_format", "json",
@@ -319,7 +319,7 @@ fn run_audio_render(
 
     log::info!("Running FFmpeg (audio): ffmpeg {}", args.join(" "));
 
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(crate::ffmpeg::ffmpeg_path())
         .args(&args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())

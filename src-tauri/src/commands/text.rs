@@ -170,7 +170,7 @@ fn run_text_render(
 
     log::info!("Running FFmpeg (text): ffmpeg {}", args.join(" "));
 
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(crate::ffmpeg::ffmpeg_path())
         .args(&args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())

@@ -100,7 +100,7 @@ pub async fn whisper_transcribe(
             .to_string();
 
         // Extract audio using FFmpeg
-        let extract_status = Command::new("ffmpeg")
+        let extract_status = Command::new(crate::ffmpeg::ffmpeg_path())
             .args([
                 "-y",
                 "-i",
@@ -201,7 +201,7 @@ pub async fn detect_scenes(input: String, threshold: f64) -> Result<Vec<ScenePoi
 
         log::info!("Running scene detection: ffmpeg {}", args.join(" "));
 
-        let output = Command::new("ffmpeg")
+        let output = Command::new(crate::ffmpeg::ffmpeg_path())
             .args(&args)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -230,7 +230,7 @@ pub async fn detect_silence(
 
         log::info!("Running silence detection: ffmpeg {}", args.join(" "));
 
-        let output = Command::new("ffmpeg")
+        let output = Command::new(crate::ffmpeg::ffmpeg_path())
             .args(&args)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -321,7 +321,7 @@ pub async fn render_with_enhancement(
 
         log::info!("Running FFmpeg (AI enhancement): ffmpeg {}", args.join(" "));
 
-        let mut child = Command::new("ffmpeg")
+        let mut child = Command::new(crate::ffmpeg::ffmpeg_path())
             .args(&args)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -484,7 +484,7 @@ pub async fn remove_watermark(
 
             log::info!("Extracting frames: ffmpeg {}", extract_args.join(" "));
 
-            let extract_status = Command::new("ffmpeg")
+            let extract_status = Command::new(crate::ffmpeg::ffmpeg_path())
                 .arg("-y")
                 .args(&extract_args)
                 .stdout(Stdio::null())
@@ -628,7 +628,7 @@ pub async fn remove_watermark(
 
             log::info!("Reassembling: ffmpeg {}", reassemble_args.join(" "));
 
-            let reassemble_status = Command::new("ffmpeg")
+            let reassemble_status = Command::new(crate::ffmpeg::ffmpeg_path())
                 .args(&reassemble_args)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
