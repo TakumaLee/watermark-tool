@@ -62,7 +62,10 @@
           "TradChinese"
         ],
         "headerImage": null,
-        "sidebarImage": null
+        "sidebarImage": null,
+        "webviewInstallMode": {
+          "type": "downloadBootstrapper"
+        }
       }
     },
     "linux": {
