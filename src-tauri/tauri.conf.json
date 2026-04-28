@@ -54,6 +54,10 @@
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": "http://timestamp.digicert.com",
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
       "nsis": {
         "displayLanguageSelector": true,
         "installerIcon": "icons/icon.ico",
