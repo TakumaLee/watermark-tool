@@ -1,13 +1,15 @@
 # 影片浮水印工具 (Video Watermark Tool)
 
 <p align="center">
-  <img src="docs/screenshots/app-preview.png" alt="App Preview" width="800" />
+  <img src="site/assets/editor.webp" alt="App Preview" width="800" />
 </p>
 
 > 跨平台桌面應用程式，用於在影片上疊加圖片浮水印。支援拖放定位、大小調整、透明度、動態移動效果及批次處理。
 
-[![Build Status](https://github.com/YOUR_ORG/watermark-tool/actions/workflows/build.yml/badge.svg)](https://github.com/YOUR_ORG/watermark-tool/actions/workflows/build.yml)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Build Status](https://github.com/TakumaLee/watermark-tool/actions/workflows/build.yml/badge.svg)](https://github.com/TakumaLee/watermark-tool/actions/workflows/build.yml)
+[產品官網](https://watermark-tool-ivory.vercel.app/) · 原始碼公開 · 安裝檔準備中
+
+目前尚無正式下載版本；開源授權條款仍待確認。Pro 的名稱、功能與收費方式另行規劃。開發版在切換片段與拖曳時間軸時仍可能停頓。
 
 ---
 
@@ -22,33 +24,12 @@
 - 📦 **批次處理** — 一次對多個影片套用相同浮水印設定
 - 💾 **設定檔** — 儲存/載入浮水印配置，快速重複使用
 - 🎨 **深色主題** — 專為影片編輯設計的深色 UI
-- 🔄 **自動更新** — 內建更新機制，自動檢查新版本
 
-## 📸 截圖
+## 📥 安裝狀態
 
-| 主畫面 | 浮水印編輯 | 批次處理 |
-|--------|-----------|---------|
-| ![Main](docs/screenshots/main.png) | ![Edit](docs/screenshots/edit.png) | ![Batch](docs/screenshots/batch.png) |
+原始碼已公開，目前沒有公開的安裝檔。Windows 已有手動打包流程；macOS／Linux 的公開安裝包與相容性驗證尚待準備。未來發布的版本會列在 [Releases](https://github.com/TakumaLee/watermark-tool/releases)。
 
-> 📌 *截圖 placeholder — 正式版本發布時更新*
-
-## 📥 安裝
-
-### 下載安裝包
-
-前往 [Releases](https://github.com/YOUR_ORG/watermark-tool/releases) 頁面下載對應平台的安裝包：
-
-| 平台 | 格式 | 檔案 |
-|------|------|------|
-| **macOS** | DMG | `watermark-tool_x.x.x_x64.dmg` / `_aarch64.dmg` |
-| **Windows** | NSIS 安裝程式 | `watermark-tool_x.x.x_x64-setup.exe` |
-| **Linux** | AppImage | `watermark-tool_x.x.x_amd64.AppImage` |
-| **Linux** | Debian | `watermark-tool_x.x.x_amd64.deb` |
-
-### 系統需求
-
-- **作業系統**：macOS 10.15+、Windows 10+、Ubuntu 20.04+ / 主流 Linux 發行版
-- **FFmpeg**：需要安裝 FFmpeg 7.x（或使用應用內建的 FFmpeg）
+上方為開發版的實際介面截圖，使用原創示範素材。若要自行執行，請參考下方開發指南，並準備 Rust、Node.js、Tauri 的平台依賴及 FFmpeg。這不代表各平台安裝包已可直接使用。
 
 #### 安裝 FFmpeg
 
@@ -127,7 +108,7 @@ sudo pacman -S ffmpeg
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_ORG/watermark-tool.git
+git clone https://github.com/TakumaLee/watermark-tool.git
 cd watermark-tool
 
 # 安裝前端依賴
@@ -202,9 +183,9 @@ cargo clippy               # Rust lint
 
 ### Git 分支
 
-- `main` — 穩定版本
+- `master` — 預設分支
 - `dev` — 開發分支
-- `feature/*` — 功能分支
+- `feat/*`、`fix/*`、`chore/*` — 工作分支
 
 ### Commit 格式
 
@@ -220,7 +201,9 @@ test(store): add watermarkStore unit tests
 
 ## 📄 授權
 
-MIT License — 詳見 [LICENSE](LICENSE)
+本次先公開原始碼。Repository 目前沒有 `LICENSE` 檔，授權條款仍待作者確認；舊版 README 的 MIT 標示尚未對應正式授權文件，因此不再沿用該標示。
+
+公開 repo 與選定開源授權是分開的步驟；正式授權確定後會補上 `LICENSE`。Pro 的品牌、原始碼公開範圍與商業授權將另行說明。
 
 ## 🙏 致謝
 
