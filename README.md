@@ -6,8 +6,8 @@
 
 > 跨平台桌面應用程式，用於在影片上疊加圖片浮水印。支援拖放定位、大小調整、透明度、動態移動效果及批次處理。
 
-[![Build Status](https://github.com/TakumaLee/watermark-tool/actions/workflows/build.yml/badge.svg)](https://github.com/TakumaLee/watermark-tool/actions/workflows/build.yml)
-[產品官網](https://watermark-tool-ivory.vercel.app/) · 原始碼公開 · 安裝檔準備中
+[![Windows Installers](https://github.com/TakumaLee/watermark-tool/actions/workflows/release.yml/badge.svg)](https://github.com/TakumaLee/watermark-tool/actions/workflows/release.yml)
+[產品官網](https://watermark-tool-ivory.vercel.app/) · [下載 Windows 安裝包](https://github.com/TakumaLee/watermark-tool/releases/tag/v0.2.0) · 原始碼公開
 
 開發版在切換片段與拖曳時間軸時仍可能停頓。
 
@@ -25,30 +25,16 @@
 - 💾 **設定檔** — 儲存/載入浮水印配置，快速重複使用
 - 🎨 **深色主題** — 專為影片編輯設計的深色 UI
 
-## 📥 安裝狀態
+## 📥 下載與安裝
 
-原始碼已公開，目前沒有公開的安裝檔。Windows 已有手動打包流程；macOS／Linux 的公開安裝包與相容性驗證尚待準備。未來發布的版本會列在 [Releases](https://github.com/TakumaLee/watermark-tool/releases)。
+前往 [v0.2.0 下載頁](https://github.com/TakumaLee/watermark-tool/releases/tag/v0.2.0)，選擇一種 Windows x64 安裝格式即可：
 
-上方為開發版的實際介面截圖，使用原創示範素材。若要自行執行，請參考下方開發指南，並準備 Rust、Node.js、Tauri 的平台依賴及 FFmpeg。這不代表各平台安裝包已可直接使用。
+- **EXE**：一般使用者建議選用，可選繁體中文安裝介面。
+- **MSI**：適合需要 Windows Installer 格式的環境。
 
-#### 安裝 FFmpeg
+安裝包已內含 FFmpeg／ffprobe 9.0.1，不需要另外安裝。目標平台為 Windows 10／11 的 64 位元 x64 電腦；若缺少 Microsoft Edge WebView2，安裝時需要連線下載執行環境。這是未經程式碼簽章的初次公開版本，Windows 可能顯示發行者未驗證提示。詳細驗證範圍、檔案校驗碼與已知限制請見版本說明。
 
-```bash
-# macOS (Homebrew)
-brew install ffmpeg
-
-# Windows (Chocolatey)
-choco install ffmpeg
-
-# Windows (Scoop)
-scoop install ffmpeg
-
-# Ubuntu / Debian
-sudo apt install ffmpeg
-
-# Arch Linux
-sudo pacman -S ffmpeg
-```
+macOS／Linux 尚未提供已驗證的安裝包。上方為開發版實際介面截圖，使用原創示範素材。進階 AI 功能另需 Python、Whisper 或 IOPaint 等外部依賴，這些依賴未包含在本次安裝包。
 
 ## 🚀 使用方式
 
@@ -98,11 +84,29 @@ sudo pacman -S ffmpeg
 
 - **Node.js** 20+
 - **Rust** 1.77+
-- **FFmpeg** 7.x（系統安裝）
+- **FFmpeg／ffprobe**（自行執行開發版時需準備；Windows 安裝包已內含 9.0.1）
 - **系統依賴**（Linux）：
   ```bash
   sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev
   ```
+
+### 開發環境的 FFmpeg
+
+Windows 安裝包不需要執行此步驟。自行開發時，可透過下列方式安裝 FFmpeg；正式 Windows 打包流程會下載並驗證指定版本的 sidecar，第三方來源紀錄見 [FFmpeg-SOURCES.md](docs/FFmpeg-SOURCES.md)。
+
+```bash
+# macOS (Homebrew)
+brew install ffmpeg
+
+# Windows (Chocolatey，或使用 scoop install ffmpeg)
+choco install ffmpeg
+
+# Ubuntu / Debian
+sudo apt install ffmpeg
+
+# Arch Linux
+sudo pacman -S ffmpeg
+```
 
 ### 快速開始
 
