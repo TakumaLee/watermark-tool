@@ -7,8 +7,8 @@ import { resolveActiveClip, isMultiSourceTimeline } from './timelineLogic';
  *
  * Preloads the next clip into `secondaryRef` while the current clip plays in
  * `primaryRef`. When the playhead crosses a clip boundary, performs an instant
- * slot-swap (calling `swapSlots`) instead of switching the primary's src — near-zero
- * stall. Falls back to direct src-switch when the secondary isn't ready in time.
+ * slot-swap (calling `swapSlots`) instead of reloading the visible player's src.
+ * Falls back to direct src-switch when the secondary isn't ready in time.
  *
  * `activeSlot` in deps ensures effect re-runs after each swap so `primaryRef.current`
  * and `secondaryRef.current` (updated synchronously by VideoPlayer's useLayoutEffect)
@@ -28,13 +28,26 @@ export function useTimelinePreview(
   const cleanupRef = useRef<(() => void) | null>(null);
 
   // Tracks what is currently preloaded in the secondary slot
-  const secondaryPreloadRef = useRef<{ clipId: string; ready: boolean } | null>(null);
+  const secondaryPreloadRef = useRef<{
+    clipId: string; sourceUrl: string; startTime: number; ready: boolean;
+  } | null>(null);
   const preloadCleanupRef = useRef<(() => void) | null>(null);
 
   const isMultiSource = isMultiSourceTimeline(clips);
 
+  // Loading can outlive a playhead update. Cancel only on replacement/reset/unmount.
+  useEffect(() => () => {
+    cleanupRef.current?.();
+    preloadCleanupRef.current?.();
+    secondaryPreloadRef.current = null;
+    prevClipIdRef.current = null;
+  }, []);
+
   useEffect(() => {
     if (!isMultiSource || clips.length === 0) {
+      cleanupRef.current?.();
+      preloadCleanupRef.current?.();
+      secondaryPreloadRef.current = null;
       setActiveClipIndex(-1);
       prevClipIdRef.current = null;
       return;
@@ -45,87 +58,107 @@ export function useTimelinePreview(
 
     setActiveClipIndex(active.index);
 
-    // ── Preload next clip into secondary ──────────────────────────────────────
-    const nextClip = clips[active.index + 1];
+    const primary = primaryRef.current;
     const secondary = secondaryRef.current;
+    if (!primary) return;
+
+    // Consume the prepared clip BEFORE changing the secondary's preload target.
+    if (active.clip.id !== prevClipIdRef.current) {
+      prevClipIdRef.current = active.clip.id;
+      cleanupRef.current?.();
+
+      const preload = secondaryPreloadRef.current;
+      const wasPlaying = !primary.paused || primary.ended;
+      if (secondary && preload?.ready && preload.clipId === active.clip.id &&
+          preload.sourceUrl === active.clip.sourceUrl && preload.startTime === active.clip.startTime) {
+        preloadCleanupRef.current?.();
+        secondaryPreloadRef.current = null;
+
+        // Keep ordinary boundary drift from causing a new seek; manual jumps must
+        // still land at their requested position (same tolerance as Timeline).
+        if (Math.abs(secondary.currentTime - active.seekTarget) > 0.05) {
+          secondary.currentTime = active.seekTarget;
+        }
+        secondary.playbackRate = primary.playbackRate;
+        primary.muted = true;
+        primary.pause();
+        secondary.muted = false;
+        swapSlots();
+        if (wasPlaying) secondary.play().catch(() => {});
+
+        // Refs still identify the OLD roles until VideoPlayer's layout effect.
+        // Preload the following clip only after activeSlot updates those refs.
+        return;
+      }
+
+      // No prepared frame: retain the existing load/seek/resume fallback.
+      const seekTarget = active.seekTarget;
+      const handleCanPlay = () => {
+        cleanupRef.current?.();
+        primary.currentTime = seekTarget;
+        if (wasPlaying) primary.play().catch(() => {});
+      };
+      primary.addEventListener('canplay', handleCanPlay, { once: true });
+      cleanupRef.current = () => {
+        primary.removeEventListener('canplay', handleCanPlay);
+        cleanupRef.current = null;
+      };
+      primary.src = active.clip.sourceUrl;
+      primary.load();
+    }
+
+    // ── Preload next clip into the now-unused secondary ──────────────────────
+    const nextClip = clips[active.index + 1];
 
     if (nextClip && secondary && nextClip.sourcePath !== active.clip.sourcePath) {
-      if (secondaryPreloadRef.current?.clipId !== nextClip.id) {
+      const existing = secondaryPreloadRef.current;
+      if (existing?.clipId !== nextClip.id || existing.sourceUrl !== nextClip.sourceUrl ||
+          existing.startTime !== nextClip.startTime) {
         // Cancel any pending listeners from the previous preload, then start fresh.
         preloadCleanupRef.current?.();
 
-        secondaryPreloadRef.current = { clipId: nextClip.id, ready: false };
-        secondary.src = nextClip.sourceUrl;
-        secondary.load();
-
-        // Capture by value so the cleanup can cancel both listeners independently.
-        const targetId = nextClip.id;
-        const startTime = nextClip.startTime;
+        const preload = {
+          clipId: nextClip.id, sourceUrl: nextClip.sourceUrl,
+          startTime: nextClip.startTime, ready: false,
+        };
+        secondaryPreloadRef.current = preload;
+        let seekRequested = false;
 
         const onSeeked = () => {
-          if (secondaryPreloadRef.current?.clipId === targetId) {
-            secondaryPreloadRef.current.ready = true;
+          if (secondaryPreloadRef.current === preload && !secondary.seeking &&
+              secondary.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            preload.ready = true;
           }
         };
 
         const onCanPlay = () => {
-          secondary.currentTime = startTime;
-          secondary.addEventListener('seeked', onSeeked, { once: true });
+          if (!seekRequested) {
+            seekRequested = true;
+            if (secondary.currentTime !== preload.startTime) {
+              secondary.currentTime = preload.startTime;
+              return;
+            }
+          }
+          // Seeking to an already-current time may not emit seeked.
+          onSeeked();
         };
 
-        secondary.addEventListener('canplay', onCanPlay, { once: true });
-
+        secondary.addEventListener('canplay', onCanPlay);
+        secondary.addEventListener('seeked', onSeeked);
         preloadCleanupRef.current = () => {
           secondary.removeEventListener('canplay', onCanPlay);
           secondary.removeEventListener('seeked', onSeeked);
           preloadCleanupRef.current = null;
         };
+        secondary.pause();
+        secondary.muted = true;
+        secondary.preload = 'auto';
+        secondary.src = nextClip.sourceUrl;
+        secondary.load();
       }
-    } else if (!nextClip) {
-      secondaryPreloadRef.current = null;
-    }
-
-    // ── Handle clip identity change ───────────────────────────────────────────
-    if (active.clip.id === prevClipIdRef.current) return;
-    prevClipIdRef.current = active.clip.id;
-
-    const primary = primaryRef.current;
-    if (!primary) return;
-
-    // Cancel any pending canplay handler from a previous fallback switch
-    cleanupRef.current?.();
-    cleanupRef.current = null;
-
-    const preload = secondaryPreloadRef.current;
-    if (preload?.clipId === active.clip.id && preload.ready && secondary) {
-      // ── Double-buffer swap ────────────────────────────────────────────────
-      const wasPlaying = !primary.paused || primary.ended;
-      secondaryPreloadRef.current = null;
-
-      // Unmute before play — secondary was muted while buffering; VideoPlayer's
-      // useLayoutEffect will confirm muted=false after the React re-render.
-      secondary.muted = false;
-      swapSlots(); // VideoPlayer toggles activeSlot → updates primaryRef/secondaryRef
-      if (wasPlaying) secondary.play().catch(() => {});
     } else {
-      // ── Fallback: switch primary's src directly ───────────────────────────
-      const wasPlaying = !primary.paused || primary.ended;
-      const seekTarget = active.seekTarget;
-
-      primary.src = active.clip.sourceUrl;
-      primary.load();
-
-      const handleCanPlay = () => {
-        primary.currentTime = seekTarget;
-        if (wasPlaying) primary.play().catch(() => {});
-      };
-
-      primary.addEventListener('canplay', handleCanPlay, { once: true });
-      cleanupRef.current = () => primary.removeEventListener('canplay', handleCanPlay);
-
-      return () => {
-        cleanupRef.current?.();
-      };
+      preloadCleanupRef.current?.();
+      secondaryPreloadRef.current = null;
     }
   }, [isMultiSource, clips, playheadTime, activeSlot, primaryRef, secondaryRef, swapSlots, setActiveClipIndex]);
 }

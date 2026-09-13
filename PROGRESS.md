@@ -1,5 +1,15 @@
 # 開發進度追蹤
 
+## 2026-09-13 — Preview preload correction (experiment)
+
+- Branch: `fix/clip-preview-preload`. Owner authorized trying a fix for brief pauses between preview clips. The separate same-clip timeline scrubbing issue remains unchanged.
+- Root cause: `useTimelinePreview` replaced prepared B with C (or cleared the record at the final clip) before checking whether B could be swapped in. The corrected order consumes B, pauses/mutes the old player, and waits for the slot refs to update before preloading C. Readiness handles zero/nonzero in-points; fallback callbacks now survive ordinary playhead updates and are cancelled on replacement/reset/unmount.
+- Verification: the original hook failed 8 of 9 new regressions; the correction passes all 9, all 173 frontend tests, targeted ESLint, `npm run build`, and `git diff --check`. A read-only independent review found no blocker in this bounded correction. Existing jsdom media/act warnings and Vite import chunk warnings remain.
+- Real-media check: headed Playwright WebKit 26.5, the actual App/VideoPlayer/Timeline components, synthetic 720p30 H.264 + AAC clips lasting 3/4/5 seconds. Both comparison runs used the same page without React development StrictMode and waited for both media elements to be ready before playback. Only the preview hook implementation differed; the original hook was served from a local HEAD snapshot. Tauri-specific event APIs are unavailable in this browser check; it is not validation of the packaged macOS/Windows app.
+- Result from one valid before/after pair: visible-frame callback gaps at A→B / B→C were **167 / 201 ms before**, **167 / 217 ms after**. Both reached the 12-second timeline end. Before: two visible-player `loadstart` events at the cuts; after: zero (only C's background preload). This proves the reload defect was removed, **not a perceptible performance improvement or seamless playback**. Callback timing is an approximation of presentation, not an on-screen latency measurement or statistical benchmark.
+- Local evidence: `output/playwright/webkit-before.json`, `webkit-after.json`, and the synthetic fixtures (locally ignored). An earlier StrictMode smoke run and a hot-update-interrupted run are excluded from the comparison. The first comparison setup also raced App initialization; the valid pair waits for the welcome screen before injecting identical fixtures.
+- Why this scope: retain the existing two-player design to isolate the verified preload defect. Defer a native preview-engine rewrite. Next investigation, if continued: measure `timeupdate`/`ended` boundary dispatch and first-frame presentation separately; test owner's real clips/platform. Revisit engine choice after those measurements. Same-clip scrubbing currently updates the timeline store without seeking in a multi-source timeline and needs its own reproduction/fix. No GitHub publication or installer release was performed.
+
 ## 總覽
 
 | 階段 | 內容 | 狀態 | 完成日期 |
