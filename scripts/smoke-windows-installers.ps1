@@ -82,7 +82,12 @@ Wait-ProcessSuccess $msiProcess
 foreach ($name in @('ffmpeg.exe', 'ffprobe.exe', $appFiles[0].Name)) {
     $extracted = @(Get-ChildItem $msiDir -Recurse -Filter $name -File)
     if ($extracted.Count -ne 1) { throw "MSI is missing a unique $name" }
-    if ((Get-FileHash $extracted[0].FullName).Hash -ne (Get-FileHash (Join-Path $installDir $name)).Hash) {
+    if ($name -eq $appFiles[0].Name) {
+        # Tauri patches the PE .taubndl target to NSS/MSI for each installer.
+        # Validate that exact marker and require every other byte to match.
+        python scripts/verify-windows-payloads.py (Join-Path $installDir $name) $extracted[0].FullName
+        if ($LASTEXITCODE -ne 0) { throw 'MSI/NSIS application payload mismatch' }
+    } elseif ((Get-FileHash $extracted[0].FullName).Hash -ne (Get-FileHash (Join-Path $installDir $name)).Hash) {
         throw "MSI/NSIS payload mismatch for $name"
     }
 }
@@ -95,6 +100,7 @@ foreach ($name in @('ffmpeg.exe', 'ffprobe.exe', $appFiles[0].Name)) {
     appWindow = $windowTitle
     installedFFmpegOverlay = 'passed'
     msiPayloadExtraction = 'passed'
+    appPayloadComparison = 'passed: identical except the Tauri NSS/MSI bundle marker'
     signing = 'unsigned'
     note = 'CI startup/media smoke checks; not a complete interactive editing test or a Windows 10 hardware compatibility test.'
 } | ConvertTo-Json | Set-Content "$env:RUNNER_TEMP/watermark-smoke-report.json" -Encoding utf8NoBOM
