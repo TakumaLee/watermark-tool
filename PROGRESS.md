@@ -1,5 +1,13 @@
 # 開發進度追蹤
 
+## 2026-09-13 — Windows installers (in progress)
+
+- Owner requested actual installers and removal of public Pro/pricing-planning text. Scope is Windows x64 EXE/MSI using the previously successful manual workflow; macOS/Linux installers remain unverified. No further preview optimization or commercial feature changes are authorized by this task.
+- Branch `chore/windows-installers` starts from public `master` commit `42e4202`. Version metadata is being aligned to existing UI version `0.2.0`. Task changes: manual workflow, installer smoke script, bundled FFmpeg notices, version files, README and site download copy. Unrelated `.claude/scheduled_tasks.lock` deletion stays unstaged.
+- Gyan 9.0.1 essentials archive was independently downloaded and verified: 111253802 bytes, SHA256 `fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9`, ZIP CRC passed. Original GPLv3 LICENSE/README are copied under `src-tauri/resources/ffmpeg/`; Windows resolver already supports sidecars beside the app. Read-only delegate `/root/review_windows_packaging` is preparing dependency source links in `/tmp/watermark-ffmpeg-source-manifest.md`; preserve any unresolved revision gaps instead of claiming a complete source bundle. App source-license choice remains undecided.
+- Current gate: focused Claude review approved the build (output `output/playwright/installers-claude-review.txt`); package versions, non-watch tests and Tauri frontend-build hook are confirmed. Next: push task branch and dispatch manual Windows build, verify NSIS install/native-window startup/installed media encode/probe and MSI extraction, download and hash artifacts, complete third-party source materials, publish a versioned release, then deploy download copy to existing Vercel project. Do not deploy availability claims before assets exist. Old `v*` tag workflow trigger is removed to avoid competing release jobs.
+- Local verification so far: aligned package/Cargo/Tauri versions, YAML parsing, requested Pro/pricing copy removal and diff whitespace checks. Windows execution and release availability are not yet verified. Installer/site links are preparatory until the build and publication gates pass.
+
 ## 2026-09-13 — Public repository publication
 
 - Owner explicitly authorized making `TakumaLee/watermark-tool` public and asked whether a later Pro could use a different name. GitHub visibility is now **PUBLIC** at https://github.com/TakumaLee/watermark-tool; its homepage points to the existing Vercel site. A future Pro may have a separate name/private repository; brand, feature split, license and pricing remain undecided.

@@ -37,6 +37,6 @@ Verify the production alias without Vercel authentication, asset HTTP status, se
 - `assets/social-card.png`: original 1200×630 HTML-rendered social preview.
 - Local capture and review evidence: `output/playwright/site-*`, `editor.png`, `field-notes.svg`, `social-card.html`, `slow-road.mp4` (locally ignored; not deployed).
 
-## Before announcing a downloadable/open-source release
+## Release content
 
-The repository was private with no releases or LICENSE at site creation. The owner subsequently authorized making it public; the website now links to the public source. No LICENSE or installers have been released. Pro remains explicitly planned. Settle the source license and public-release scope, publish real assets with verified platform support, and then replace the installer-preparation copy with working release links. Do not imply that Pro, a native preview rewrite, paid support, or a particular performance gain is already available. Keep the known preview limitation in the FAQ until its status actually changes.
+The website links to the Windows x64 v0.2.0 installers and the public source repository. Only publish this download copy after both real installer files are available on the linked release. Keep platform, signing, prerequisites and preview limitations aligned with the release notes. The owner requested removing Pro/commercial planning copy from public-facing documentation; do not reintroduce it. The project source license is still undecided; bundled third-party software retains its own notices and source information.

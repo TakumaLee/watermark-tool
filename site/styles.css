@@ -95,7 +95,7 @@ figcaption .status-dot{background:var(--lime)}
 .edition li:before{content:"＋";color:#536943}
 .edition-note{font-size:11px;line-height:1.85;color:var(--muted);max-width:380px;margin:auto 0 24px}
 .edition .button{align-self:stretch}
-.pro{background:#e8ecdf}
+.source{background:#e8ecdf}
 .faq{display:grid;grid-template-columns:1fr 1.55fr;gap:50px;padding-top:0}
 .faq .eyebrow{margin-bottom:15px}
 .faq h2{font-size:28px}

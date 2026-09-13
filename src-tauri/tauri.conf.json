@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "watermark-tool",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.watermark.tool",
   "build": {
     "frontendDist": "../dist",
@@ -26,7 +26,9 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       }
     }
   },
@@ -44,7 +46,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [],
+    "resources": [
+      "resources/ffmpeg/"
+    ],
     "copyright": "© 2026 Watermark Tool",
     "category": "Utility",
     "shortDescription": "影片浮水印工具 — 在影片上疊加圖片浮水印",

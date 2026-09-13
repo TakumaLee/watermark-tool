@@ -1,0 +1,15 @@
+FFmpeg and ffprobe are separate, unmodified command-line programs bundled with the Windows installer.
+
+Upstream distributor: Gyan Doshi / CODEX FFMPEG
+Build: 9.0.1-essentials_build, Windows x64
+Binary archive: https://github.com/GyanD/codexffmpeg/releases/download/9.0.1/ffmpeg-9.0.1-essentials_build.zip
+Archive SHA-256: fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9
+FFmpeg source commit: bf1b838f2ab88b4f8fd83443325c782ea0e0f7fa
+FFmpeg source: https://github.com/FFmpeg/FFmpeg/tree/bf1b838f2ab88b4f8fd83443325c782ea0e0f7fa
+Upstream build information: https://www.gyan.dev/ffmpeg/builds/
+Release source materials: https://github.com/TakumaLee/watermark-tool/releases/tag/v0.2.0
+
+The upstream GPLv3 LICENSE and README.txt are preserved in this directory.
+README.txt records the build configuration and external dependency revisions.
+The release source index lists matching source locations separately from the installer.
+These third-party terms apply to their respective programs, separately from the Watermark Tool project's unresolved source-license choice.

@@ -9,7 +9,7 @@
 [![Build Status](https://github.com/TakumaLee/watermark-tool/actions/workflows/build.yml/badge.svg)](https://github.com/TakumaLee/watermark-tool/actions/workflows/build.yml)
 [產品官網](https://watermark-tool-ivory.vercel.app/) · 原始碼公開 · 安裝檔準備中
 
-目前尚無正式下載版本；開源授權條款仍待確認。Pro 的名稱、功能與收費方式另行規劃。開發版在切換片段與拖曳時間軸時仍可能停頓。
+開發版在切換片段與拖曳時間軸時仍可能停頓。
 
 ---
 
@@ -203,7 +203,7 @@ test(store): add watermarkStore unit tests
 
 本次先公開原始碼。Repository 目前沒有 `LICENSE` 檔，授權條款仍待作者確認；舊版 README 的 MIT 標示尚未對應正式授權文件，因此不再沿用該標示。
 
-公開 repo 與選定開源授權是分開的步驟；正式授權確定後會補上 `LICENSE`。Pro 的品牌、原始碼公開範圍與商業授權將另行說明。
+公開 repo 與選定開源授權是分開的步驟；正式授權確定後會補上 `LICENSE`。
 
 ## 🙏 致謝
 
