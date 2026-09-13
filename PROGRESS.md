@@ -1,5 +1,14 @@
 # 開發進度追蹤
 
+## 2026-09-13 — Vercel product website
+
+- Owner authorized a one-page website on their existing Vercel Pro account, without GitHub Pages, and stopped further preview-performance experiments. Website source is isolated in `site/` on `feat/vercel-site`; desktop app code is unchanged in this task.
+- Live site: **https://watermark-tool-ivory.vercel.app/**. New project `watermark-tool` in existing active Pro team `nebula-proj` (Nebulab). Initial production deployment: `dpl_9TMUiuZVspaDGyK9H3yJ1E1zbdMu`, immutable URL `https://watermark-tool-7s5mu4yto-nebula-proj.vercel.app`. Deployed only `site/` via CLI. No Git integration, custom-domain/billing changes, or changes to existing Vercel projects.
+- Contents: responsive Traditional Chinese product introduction, original illustrative hero, real development UI screenshot using original demo footage, core features, Community/Pro plans, FAQ, and direct author email links. Static HTML/CSS, no JavaScript/build dependencies/backend. Canonical/OG metadata, social card, favicon, sitemap, custom 404, CSP and basic response headers included. Deployment/rollback and asset provenance documented in `site/README.md`.
+- Publication boundaries: GitHub repository remains private, no release/installers published, no source license selected. Community explicitly pending publication; Pro, performance work and paid features explicitly under evaluation. Public contact matches the author's public GitHub profile. The website does not promise a native rewrite, seamless playback, shipping cross-platform installers, or a paid product already available.
+- Verification: local WebKit checks at 320/390/768/1024/1440 px, no horizontal overflow/broken assets/anchors, FAQ keyboard toggling and reduced-motion behavior. Independent Claude deployment/intent review approved after supplying source evidence for feature claims and correcting config exclusion, social URLs and caption readability. Unauthenticated production checks passed for all 8 public routes/assets, custom 404 and 6 excluded source/config paths, with CSP/DENY headers. Production WebKit desktop/mobile screenshots show loaded images, 390 px viewport without overflow, zero page exceptions and zero site scripts. Evidence is local under `output/playwright/site-*` and ignored, not deployed.
+- Vercel CLI authentication was renewed by the owner. `vercel link` generated an unnecessary `.env.local`; that file was removed unread. `.env*` and `.vercel/` are excluded from upload and Git. The unrelated pre-existing deletion of `.claude/scheduled_tasks.lock` is preserved.
+
 ## 2026-09-13 — Preview preload correction (experiment)
 
 - Branch: `fix/clip-preview-preload`. Owner authorized trying a fix for brief pauses between preview clips. The separate same-clip timeline scrubbing issue remains unchanged.

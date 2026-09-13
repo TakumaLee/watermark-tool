@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://watermark-tool-ivory.vercel.app/sitemap.xml
